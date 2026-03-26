@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /opt/hermes
 
-RUN git clone https://github.com/hermes-ai/hermes-agent.git . \
+RUN git clone https://github.com/NousResearch/hermes-agent.git . \
     && python -m venv /opt/hermes/venv \
     && /opt/hermes/venv/bin/pip install --no-cache-dir -U pip \
     && /opt/hermes/venv/bin/pip install --no-cache-dir -e .
