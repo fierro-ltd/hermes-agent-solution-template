@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { GraduationCap, LogOut } from "lucide-react";
+import { GraduationCap, LogOut, ExternalLink } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 
 export function NavBar() {
@@ -8,9 +8,10 @@ export function NavBar() {
   const { data: session } = authClient.useSession();
 
   const links = [
-    { to: "/", label: "Home" },
-    { to: "/submissions", label: "Submissions" },
-    { to: "/settings", label: "Settings" },
+    { to: "/", label: "Home", external: false },
+    { to: "/submissions", label: "Submissions", external: false },
+    { to: "/docs", label: "API", external: true },
+    { to: "/settings", label: "Settings", external: false },
   ] as const;
 
   async function handleSignOut() {
@@ -42,6 +43,20 @@ export function NavBar() {
         <div className="flex items-center gap-1">
           {links.map((link) => {
             const isActive = location.pathname === link.to;
+            if (link.external) {
+              return (
+                <a
+                  key={link.to}
+                  href={link.to}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-4 py-2 pb-0.5 text-sm transition-colors border-b-2 text-muted-foreground hover:text-foreground border-transparent"
+                >
+                  {link.label}
+                  <ExternalLink className="size-3" />
+                </a>
+              );
+            }
             return (
               <Link
                 key={link.to}

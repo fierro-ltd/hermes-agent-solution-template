@@ -29,6 +29,7 @@ export interface Submission {
   student_name: string;
   content: string;
   status: SubmissionStatus;
+  workflow_id: string | null;
   agent_feedback: AgentFeedback | null;
   final_score: number | null;
   professor_notes: string | null;

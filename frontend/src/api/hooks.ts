@@ -32,7 +32,15 @@ export function useSubmissions() {
   });
 }
 
-export function useSubmission(id: string) {
+export function useSubmission(
+  id: string,
+  options?: {
+    refetchInterval?:
+      | number
+      | false
+      | ((query: { state: { data?: Submission } }) => number | false);
+  },
+) {
   const getToken = useToken();
   return useQuery({
     queryKey: ["submissions", id],
@@ -41,6 +49,7 @@ export function useSubmission(id: string) {
       return fetchJSON<Submission>(`/api/submissions/${id}`, undefined, token);
     },
     enabled: !!id,
+    refetchInterval: options?.refetchInterval as any,
   });
 }
 

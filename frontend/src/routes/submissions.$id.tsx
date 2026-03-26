@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { StatusBadge } from "@/components/status-badge";
 import {
   useSubmission,
   useSubmissionReviews,
@@ -24,6 +23,10 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
+  Loader2,
+  ExternalLink,
+  Check,
+  Circle,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { SubmissionStatus } from "@/api/types";
@@ -87,10 +90,161 @@ function StatusTimeline({ status }: { status: SubmissionStatus }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Evaluating spinner with cycling status messages
+// ---------------------------------------------------------------------------
+
+const evaluatingMessages = [
+  "Analyzing content...",
+  "Evaluating against rubric...",
+  "Generating feedback...",
+];
+
+function EvaluatingSpinner() {
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMessageIndex((prev) => (prev + 1) % evaluatingMessages.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center gap-3 py-4">
+      <Loader2 className="size-8 animate-spin text-blue-500" />
+      <p className="text-sm font-medium">
+        Agent is evaluating this submission...
+      </p>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="inline-block size-1.5 rounded-full bg-blue-500 animate-pulse" />
+        {evaluatingMessages[messageIndex]}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Detailed evaluating progress card (right panel)
+// ---------------------------------------------------------------------------
+
+const evaluationSteps = [
+  "Submission received",
+  "Rubric loaded",
+  "Analyzing content",
+  "Generating feedback",
+  "Scoring",
+];
+
+function EvaluatingProgressCard() {
+  const [activeStep, setActiveStep] = useState(2);
+  const [showSlowMessage, setShowSlowMessage] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveStep((prev) => {
+        // Cycle through steps 2-4 (the "in progress" ones)
+        if (prev >= evaluationSteps.length - 1) return 2;
+        return prev + 1;
+      });
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setShowSlowMessage(true);
+    }, 30000);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Loader2 className="size-4 animate-spin text-blue-500" />
+          AI Agent is evaluating...
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <ul className="space-y-2">
+          {evaluationSteps.map((step, i) => {
+            const isCompleted = i < activeStep;
+            const isCurrent = i === activeStep;
+            return (
+              <li
+                key={step}
+                className="flex items-center gap-2.5 text-sm"
+              >
+                {isCompleted ? (
+                  <Check className="size-4 text-green-500 shrink-0" />
+                ) : isCurrent ? (
+                  <Loader2 className="size-4 animate-spin text-blue-500 shrink-0" />
+                ) : (
+                  <Circle className="size-4 text-muted-foreground/40 shrink-0" />
+                )}
+                <span
+                  className={
+                    isCompleted
+                      ? "text-muted-foreground"
+                      : isCurrent
+                        ? "text-foreground font-medium"
+                        : "text-muted-foreground/60"
+                  }
+                >
+                  {step}
+                  {isCurrent && "..."}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        {showSlowMessage && (
+          <p className="text-xs text-amber-600 mt-3 border-t pt-3">
+            This is taking longer than usual. The agent may be processing a
+            complex submission.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Temporal UI debug link
+// ---------------------------------------------------------------------------
+
+const TEMPORAL_UI_URL =
+  import.meta.env.VITE_TEMPORAL_UI_URL ||
+  "http://localhost:8233";
+
+function TemporalLink({ workflowId }: { workflowId: string }) {
+  const url = `${TEMPORAL_UI_URL}/namespaces/default/workflows/${workflowId}`;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+    >
+      <ExternalLink className="size-3" />
+      View in Temporal UI
+    </a>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
 function SubmissionDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { data: submission, isLoading } = useSubmission(id);
+  const { data: sub, isLoading } = useSubmission(id, {
+    refetchInterval: (query) =>
+      query.state.data?.status === "evaluating" ? 5000 : false,
+  });
+
   const { data: reviews } = useSubmissionReviews(id);
   const submitReview = useSubmitReview(id);
 
@@ -105,31 +259,27 @@ function SubmissionDetailPage() {
     );
   }
 
-  if (!submission) {
+  if (!sub) {
     return (
       <div className="p-8 text-muted-foreground">Submission not found.</div>
     );
   }
 
   const isFinalized =
-    submission.status === "approved" || submission.status === "rejected";
-  // Find the review that contains actual agent feedback (the grading review).
-  // After approval/rejection the latest_review may be the decision record which
-  // has no agent_feedback, so we search all reviews for one with feedback.
-  const latestReview = (submission as any).latest_review;
+    sub.status === "approved" || sub.status === "rejected";
+  const latestReview = (sub as any).latest_review;
   const allReviewSources = [
     latestReview,
     ...(reviews ?? []),
   ].filter(Boolean);
 
-  let feedback: { suggested_score: number; strengths: string[]; weaknesses: string[]; reasoning: string } | null = null;
+  let feedback: { suggested_score: number; score?: number; strengths: string[]; weaknesses: string[]; reasoning: string } | null = null;
   for (const r of allReviewSources) {
     if (r?.agent_feedback) {
       try {
         const parsed = typeof r.agent_feedback === "string"
           ? JSON.parse(r.agent_feedback)
           : r.agent_feedback;
-        // Verify it actually has the expected shape
         if (parsed && Array.isArray(parsed.strengths) && Array.isArray(parsed.weaknesses)) {
           feedback = parsed;
           break;
@@ -138,9 +288,8 @@ function SubmissionDetailPage() {
     }
   }
 
-  // Also check the submission-level agent_feedback field
-  if (!feedback && submission.agent_feedback) {
-    const af = submission.agent_feedback;
+  if (!feedback && sub.agent_feedback) {
+    const af = sub.agent_feedback;
     if (Array.isArray(af.strengths) && Array.isArray(af.weaknesses)) {
       feedback = {
         suggested_score: af.score,
@@ -209,32 +358,42 @@ function SubmissionDetailPage() {
             Back
           </Button>
           <div>
-            <h1 className="text-xl font-bold">{submission.title}</h1>
+            <h1 className="text-xl font-bold">{sub.title}</h1>
             <p className="text-sm text-muted-foreground">
-              by {submission.student_name}
+              by {sub.student_name}
             </p>
           </div>
         </div>
-        <StatusTimeline status={submission.status} />
+        <div className="flex flex-col items-end gap-1">
+          <StatusTimeline status={sub.status} />
+          {sub.workflow_id && (
+            <TemporalLink workflowId={sub.workflow_id} />
+          )}
+        </div>
       </div>
 
       {/* Split panels */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left panel — Submission content (60%) */}
+        {/* Left panel -- Submission content (60%) */}
         <div className="w-3/5 border-r">
           <ScrollArea className="h-full">
             <div className="p-8">
               <h2 className="text-lg font-semibold mb-4">
                 Submission Content
               </h2>
+              {sub.status === "evaluating" && (
+                <div className="mb-6">
+                  <EvaluatingSpinner />
+                </div>
+              )}
               <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
-                {submission.content}
+                {sub.content}
               </div>
             </div>
           </ScrollArea>
         </div>
 
-        {/* Right panel — Agent evaluation (40%) */}
+        {/* Right panel -- Agent evaluation (40%) */}
         <div className="w-2/5">
           <ScrollArea className="h-full">
             <div className="p-6 space-y-6">
@@ -249,16 +408,16 @@ function SubmissionDetailPage() {
                         Final Score
                       </span>
                       <span className="text-2xl font-bold">
-                        {submission.final_score ?? "--"}
+                        {sub.final_score ?? "--"}
                       </span>
                     </div>
-                    {submission.professor_notes && (
+                    {sub.professor_notes && (
                       <div>
                         <span className="text-sm font-medium">
                           Professor Notes
                         </span>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {submission.professor_notes}
+                          {sub.professor_notes}
                         </p>
                       </div>
                     )}
@@ -281,7 +440,7 @@ function SubmissionDetailPage() {
                           Suggested Score
                         </span>
                         <span className="text-4xl font-bold text-blue-600">
-                          {feedback.score}
+                          {feedback.score ?? feedback.suggested_score}
                         </span>
                       </div>
 
@@ -366,11 +525,11 @@ function SubmissionDetailPage() {
                     )}
                   </div>
                 </>
+              ) : sub.status === "evaluating" ? (
+                <EvaluatingProgressCard />
               ) : (
                 <div className="text-sm text-muted-foreground py-8 text-center">
-                  {submission.status === "evaluating"
-                    ? "Agent is currently evaluating this submission..."
-                    : "No agent evaluation available yet."}
+                  No agent evaluation available yet.
                 </div>
               )}
 
