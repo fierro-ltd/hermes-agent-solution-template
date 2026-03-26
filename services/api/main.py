@@ -70,34 +70,43 @@ app.add_middleware(
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 )
 async def proxy_auth(request: Request, path: str) -> Response:
-    """Proxy all auth requests to the better-auth service."""
-    async with httpx.AsyncClient() as client:
-        url = f"{AUTH_SERVICE_URL}/api/auth/{path}"
+    """Proxy all auth requests to the better-auth service.
 
-        # Forward the request, stripping hop-by-hop headers
+    Forwards query params, headers, cookies, and body. Preserves
+    Set-Cookie and Location headers in the response. Follows no
+    redirects — passes them through to the browser.
+    """
+    # Build target URL with query string preserved
+    url = f"{AUTH_SERVICE_URL}/api/auth/{path}"
+    if request.url.query:
+        url = f"{url}?{request.url.query}"
+
+    # Forward headers, stripping hop-by-hop ones
+    fwd_headers = {
+        k: v
+        for k, v in request.headers.items()
+        if k.lower() not in ("host", "content-length", "transfer-encoding")
+    }
+
+    async with httpx.AsyncClient(follow_redirects=False, timeout=30.0) as client:
         resp = await client.request(
             method=request.method,
             url=url,
-            headers={
-                k: v
-                for k, v in request.headers.items()
-                if k.lower() not in ("host", "content-length")
-            },
+            headers=fwd_headers,
             content=await request.body(),
-            cookies=request.cookies,
         )
 
-        # Build response preserving status, content-type, and critical headers
-        response = Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            media_type=resp.headers.get("content-type"),
-        )
-        # Forward Set-Cookie (critical for session management) and other headers
-        for key, value in resp.headers.multi_items():
-            if key.lower() in ("set-cookie", "location", "x-request-id"):
-                response.headers.append(key, value)
-        return response
+    # Build response — pass through everything
+    response = Response(
+        content=resp.content,
+        status_code=resp.status_code,
+    )
+    # Forward all response headers except hop-by-hop
+    skip_headers = {"transfer-encoding", "content-encoding", "content-length", "connection"}
+    for key, value in resp.headers.multi_items():
+        if key.lower() not in skip_headers:
+            response.headers.append(key, value)
+    return response
 
 
 # ---------------------------------------------------------------------------
