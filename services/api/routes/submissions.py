@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 from typing import Any
 
@@ -13,6 +14,8 @@ from services.api.schemas import (
     SubmissionListResponse,
     SubmissionResponse,
 )
+
+TEMPORAL_UI_URL = os.environ.get("TEMPORAL_UI_URL", "http://localhost:8233")
 
 router = APIRouter(prefix="/submissions", tags=["submissions"])
 
@@ -168,3 +171,93 @@ async def get_submission(submission_id: uuid.UUID) -> dict[str, Any]:
 
     submission["latest_review"] = dict(review_row) if review_row else None
     return submission
+
+
+# ---------------------------------------------------------------------------
+# GET /api/submissions/{id}/progress
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{submission_id}/progress")
+async def get_submission_progress(submission_id: uuid.UUID):
+    """Return real workflow activity progress from Temporal history."""
+    pool = await deps.get_pool()
+    row = await pool.fetchrow(
+        "SELECT workflow_id, status FROM submissions WHERE id = $1",
+        submission_id,
+    )
+    if not row:
+        raise HTTPException(404, "Submission not found")
+
+    if not row["workflow_id"]:
+        return {"status": row["status"], "activities": []}
+
+    # Query Temporal for workflow history
+    client = await deps.get_temporal_client()
+    try:
+        handle = client.get_workflow_handle(row["workflow_id"])
+        # Fetch workflow history events
+        activities: list[dict[str, Any]] = []
+        async for event in handle.fetch_history_events():
+            # Get event type as string — handle both enum and int protobuf values
+            et = event.event_type
+            et_name = et.name if hasattr(et, "name") else str(et)
+
+            # Temporal protobuf event type integers:
+            # 10 = ACTIVITY_TASK_SCHEDULED, 11 = STARTED, 12 = COMPLETED, 13 = FAILED
+            et_int = et if isinstance(et, int) else getattr(et, "value", 0)
+
+            if et_int == 10:  # ActivityTaskScheduled
+                attr = event.activity_task_scheduled_event_attributes
+                act_name = getattr(attr.activity_type, "name", "") or f"activity_{len(activities)+1}"
+                activities.append({
+                    "name": act_name,
+                    "status": "scheduled",
+                })
+            elif et_int == 11:  # ActivityTaskStarted
+                for a in reversed(activities):
+                    if a["status"] == "scheduled":
+                        a["status"] = "running"
+                        break
+            elif et_int == 12:  # ActivityTaskCompleted
+                for a in reversed(activities):
+                    if a["status"] in ("scheduled", "running"):
+                        a["status"] = "completed"
+                        break
+            elif et_int == 13:  # ActivityTaskFailed
+                for a in reversed(activities):
+                    if a["status"] in ("scheduled", "running"):
+                        a["status"] = "failed"
+                        break
+
+        # Check workflow status
+        workflow_status = "running"
+        try:
+            desc = await handle.describe()
+            st = desc.status
+            workflow_status = (st.name.lower() if hasattr(st, "name") else str(st)).lower()
+        except Exception:
+            pass
+
+        # Build Temporal UI deep link
+        temporal_ui_url = (
+            f"{TEMPORAL_UI_URL}/namespaces/default/workflows/{row['workflow_id']}"
+        )
+
+        return {
+            "status": row["status"],
+            "workflow_status": workflow_status,
+            "activities": activities,
+            "temporal_ui_url": temporal_ui_url,
+        }
+    except Exception as e:
+        temporal_ui_url = (
+            f"{TEMPORAL_UI_URL}/namespaces/default/workflows/{row['workflow_id']}"
+        )
+        return {
+            "status": row["status"],
+            "workflow_status": "unknown",
+            "activities": [],
+            "temporal_ui_url": temporal_ui_url,
+            "error": str(e),
+        }

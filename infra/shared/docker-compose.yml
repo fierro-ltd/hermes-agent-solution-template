@@ -110,6 +110,7 @@ services:
       - DATABASE_URL=postgresql://app_user:app_password@postgres:5432/app_db
       - HERMES_API_URL=http://hermes-gateway:8642
       - AUTH_SERVICE_URL=http://auth:3100
+      - TEMPORAL_UI_URL=${TEMPORAL_UI_URL:-http://localhost:8233}
       - UPLOAD_DIR=/app/uploads
     volumes:
       - upload_data:/app/uploads

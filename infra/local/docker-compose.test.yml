@@ -17,6 +17,7 @@ services:
       - DATABASE_URL=postgresql://app_user:app_password@postgres:5432/app_db
       - HERMES_API_URL=http://host.docker.internal:8642
       - HERMES_API_KEY=hermes-api-fierroltd-2026
+      - AUTH_BYPASS=true
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

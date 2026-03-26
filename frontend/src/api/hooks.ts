@@ -9,6 +9,7 @@ import type {
   Stats,
   ProviderConfig,
   ProviderConfigUpdate,
+  WorkflowProgress,
 } from "./types";
 
 // Returns a getter that fetches the current session token from better-auth
@@ -88,6 +89,23 @@ export function useSettings() {
       const token = await getToken();
       return fetchJSON<Setting[]>("/api/settings", undefined, token);
     },
+  });
+}
+
+export function useSubmissionProgress(id: string) {
+  const getToken = useToken();
+  return useQuery({
+    queryKey: ["submission-progress", id],
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchJSON<WorkflowProgress>(
+        `/api/submissions/${id}/progress`,
+        undefined,
+        token,
+      );
+    },
+    enabled: !!id,
+    refetchInterval: 3000, // Poll every 3s while evaluating
   });
 }
 

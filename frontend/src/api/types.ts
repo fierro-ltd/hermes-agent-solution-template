@@ -78,3 +78,21 @@ export interface Provider {
   enabled: boolean;
   models: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Workflow progress (real Temporal activity tracking)
+// ---------------------------------------------------------------------------
+
+export interface WorkflowActivity {
+  name: string;
+  status: "scheduled" | "running" | "completed" | "failed";
+  timestamp: string | null;
+}
+
+export interface WorkflowProgress {
+  status: string;
+  workflow_status?: string;
+  activities: WorkflowActivity[];
+  temporal_ui_url?: string;
+  error?: string;
+}

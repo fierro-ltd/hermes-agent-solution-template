@@ -16,6 +16,10 @@ from fastapi import HTTPException, Request, status
 from services.api import deps
 
 
+_dev_mode = not os.environ.get("AUTH_SECRET")
+_auth_bypass = os.environ.get("AUTH_BYPASS", "").lower() in ("true", "1", "yes")
+
+
 async def verify_auth(request: Request) -> dict[str, Any]:
     """FastAPI dependency that verifies a better-auth session.
 
@@ -23,7 +27,8 @@ async def verify_auth(request: Request) -> dict[str, Any]:
     """
 
     # Dev mode: bypass auth when AUTH_SECRET is not set
-    if not os.environ.get("AUTH_SECRET"):
+    # Auth bypass: explicit override for debugging deployed environments
+    if _dev_mode or _auth_bypass:
         return {"sub": "dev-user", "email": "dev@localhost"}
 
     # Extract token from cookie or Authorization header

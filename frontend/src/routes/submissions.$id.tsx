@@ -15,7 +15,9 @@ import {
   useSubmission,
   useSubmissionReviews,
   useSubmitReview,
+  useSubmissionProgress,
 } from "@/api/hooks";
+import type { WorkflowActivity } from "@/api/types";
 import {
   CheckCircle,
   XCircle,
@@ -125,38 +127,36 @@ function EvaluatingSpinner() {
 }
 
 // ---------------------------------------------------------------------------
-// Detailed evaluating progress card (right panel)
+// Detailed evaluating progress card (right panel) -- real Temporal data
 // ---------------------------------------------------------------------------
 
-const evaluationSteps = [
-  "Submission received",
-  "Rubric loaded",
-  "Analyzing content",
-  "Generating feedback",
-  "Scoring",
-];
+const activityLabels: Record<string, string> = {
+  evaluate_submission: "Evaluating submission",
+  notify_reviewer: "Notifying reviewer",
+  record_final_grade: "Recording grade",
+};
 
-function EvaluatingProgressCard() {
-  const [activeStep, setActiveStep] = useState(2);
-  const [showSlowMessage, setShowSlowMessage] = useState(false);
+function humanizeActivityName(name: string): string {
+  return activityLabels[name] ?? name.replace(/_/g, " ");
+}
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveStep((prev) => {
-        // Cycle through steps 2-4 (the "in progress" ones)
-        if (prev >= evaluationSteps.length - 1) return 2;
-        return prev + 1;
-      });
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
+function ActivityStatusIcon({ status }: { status: WorkflowActivity["status"] }) {
+  switch (status) {
+    case "completed":
+      return <Check className="size-4 text-green-500 shrink-0" />;
+    case "running":
+      return <Loader2 className="size-4 animate-spin text-blue-500 shrink-0" />;
+    case "failed":
+      return <XCircle className="size-4 text-red-500 shrink-0" />;
+    case "scheduled":
+    default:
+      return <Circle className="size-4 text-muted-foreground/40 shrink-0" />;
+  }
+}
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setShowSlowMessage(true);
-    }, 30000);
-    return () => clearTimeout(timeout);
-  }, []);
+function EvaluatingProgressCard({ submissionId }: { submissionId: string }) {
+  const { data: progress } = useSubmissionProgress(submissionId);
+  const activities = progress?.activities ?? [];
 
   return (
     <Card>
@@ -167,42 +167,40 @@ function EvaluatingProgressCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <ul className="space-y-2">
-          {evaluationSteps.map((step, i) => {
-            const isCompleted = i < activeStep;
-            const isCurrent = i === activeStep;
-            return (
+        {activities.length === 0 ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Waiting for worker to pick up task...
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {activities.map((activity, i) => (
               <li
-                key={step}
+                key={`${activity.name}-${i}`}
                 className="flex items-center gap-2.5 text-sm"
               >
-                {isCompleted ? (
-                  <Check className="size-4 text-green-500 shrink-0" />
-                ) : isCurrent ? (
-                  <Loader2 className="size-4 animate-spin text-blue-500 shrink-0" />
-                ) : (
-                  <Circle className="size-4 text-muted-foreground/40 shrink-0" />
-                )}
+                <ActivityStatusIcon status={activity.status} />
                 <span
                   className={
-                    isCompleted
+                    activity.status === "completed"
                       ? "text-muted-foreground"
-                      : isCurrent
+                      : activity.status === "running"
                         ? "text-foreground font-medium"
-                        : "text-muted-foreground/60"
+                        : activity.status === "failed"
+                          ? "text-red-600 font-medium"
+                          : "text-muted-foreground/60"
                   }
                 >
-                  {step}
-                  {isCurrent && "..."}
+                  {humanizeActivityName(activity.name)}
+                  {activity.status === "running" && "..."}
                 </span>
               </li>
-            );
-          })}
-        </ul>
-        {showSlowMessage && (
+            ))}
+          </ul>
+        )}
+        {progress?.error && (
           <p className="text-xs text-amber-600 mt-3 border-t pt-3">
-            This is taking longer than usual. The agent may be processing a
-            complex submission.
+            Error fetching progress: {progress.error}
           </p>
         )}
       </CardContent>
@@ -211,15 +209,15 @@ function EvaluatingProgressCard() {
 }
 
 // ---------------------------------------------------------------------------
-// Temporal UI debug link
+// Temporal UI debug link (URL provided by /progress API endpoint)
 // ---------------------------------------------------------------------------
 
-const TEMPORAL_UI_URL =
-  import.meta.env.VITE_TEMPORAL_UI_URL ||
-  "http://localhost:8233";
+function TemporalLink({ submissionId }: { submissionId: string }) {
+  const { data: progress } = useSubmissionProgress(submissionId);
+  const url = progress?.temporal_ui_url;
 
-function TemporalLink({ workflowId }: { workflowId: string }) {
-  const url = `${TEMPORAL_UI_URL}/namespaces/default/workflows/${workflowId}`;
+  if (!url) return null;
+
   return (
     <a
       href={url}
@@ -367,7 +365,7 @@ function SubmissionDetailPage() {
         <div className="flex flex-col items-end gap-1">
           <StatusTimeline status={sub.status} />
           {sub.workflow_id && (
-            <TemporalLink workflowId={sub.workflow_id} />
+            <TemporalLink submissionId={id} />
           )}
         </div>
       </div>
@@ -526,7 +524,7 @@ function SubmissionDetailPage() {
                   </div>
                 </>
               ) : sub.status === "evaluating" ? (
-                <EvaluatingProgressCard />
+                <EvaluatingProgressCard submissionId={id} />
               ) : (
                 <div className="text-sm text-muted-foreground py-8 text-center">
                   No agent evaluation available yet.
