@@ -23,6 +23,10 @@ RUN mkdir -p /root/.hermes
 COPY services/hermes/SOUL.md /root/.hermes/SOUL.md
 COPY services/hermes/config.yaml /root/.hermes/config.yaml
 
-EXPOSE 8088
+EXPOSE 8642
 
-CMD ["hermes", "gateway", "run", "--host", "0.0.0.0", "--port", "8088"]
+ENV API_SERVER_ENABLED=true
+ENV API_SERVER_HOST=0.0.0.0
+ENV API_SERVER_PORT=8642
+
+CMD ["hermes", "gateway", "run"]

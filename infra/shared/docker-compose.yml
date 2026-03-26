@@ -54,18 +54,20 @@ services:
       context: ../..
       dockerfile: services/hermes/Dockerfile
     ports:
-      - "127.0.0.1:8088:8088"
+      - "127.0.0.1:8642:8642"
     environment:
-      - HERMES_MODEL_PROVIDER=${HERMES_MODEL_PROVIDER:-anthropic}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - HERMES_API_KEY=${HERMES_API_KEY:-}
+      - HERMES_MODEL_PROVIDER=${HERMES_MODEL_PROVIDER:-openrouter}
+      - OPENROUTER_API_KEY=${LLM_API_KEY:-}
+      - API_SERVER_ENABLED=true
+      - API_SERVER_HOST=0.0.0.0
+      - API_SERVER_PORT=8642
+      - API_SERVER_KEY=${HERMES_API_KEY:-}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8088/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8642/health"]
       interval: 10s
       timeout: 5s
-      retries: 12
-      start_period: 15s
+      retries: 24
+      start_period: 60s
 
   auth:
     build:
@@ -103,7 +105,7 @@ services:
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - DATABASE_URL=postgresql://app_user:app_password@postgres:5432/app_db
-      - HERMES_API_URL=http://hermes-gateway:8088
+      - HERMES_API_URL=http://hermes-gateway:8642
       - UPLOAD_DIR=/app/uploads
     volumes:
       - upload_data:/app/uploads
@@ -128,7 +130,7 @@ services:
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - DATABASE_URL=postgresql://app_user:app_password@postgres:5432/app_db
-      - HERMES_API_URL=http://hermes-gateway:8088
+      - HERMES_API_URL=http://hermes-gateway:8642
       - HERMES_API_KEY=${HERMES_API_KEY:-}
       - TASK_QUEUE=grading
     volumes:
