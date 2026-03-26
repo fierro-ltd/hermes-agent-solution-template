@@ -4,14 +4,17 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import httpx
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from services.api import deps
 from services.api.auth import verify_auth
 from services.api.routes import health, reviews, settings, stats, submissions
+
+AUTH_SERVICE_URL = os.environ.get("AUTH_SERVICE_URL", "http://auth:3100")
 
 _STATIC_DIR = Path("/app/static")
 
@@ -55,6 +58,47 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Auth proxy — forwards /api/auth/* to the better-auth service (no auth required)
+# Must be registered BEFORE authenticated routes.
+# ---------------------------------------------------------------------------
+
+
+@app.api_route(
+    "/api/auth/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+)
+async def proxy_auth(request: Request, path: str) -> Response:
+    """Proxy all auth requests to the better-auth service."""
+    async with httpx.AsyncClient() as client:
+        url = f"{AUTH_SERVICE_URL}/api/auth/{path}"
+
+        # Forward the request, stripping hop-by-hop headers
+        resp = await client.request(
+            method=request.method,
+            url=url,
+            headers={
+                k: v
+                for k, v in request.headers.items()
+                if k.lower() not in ("host", "content-length")
+            },
+            content=await request.body(),
+            cookies=request.cookies,
+        )
+
+        # Build response preserving status, content-type, and critical headers
+        response = Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            media_type=resp.headers.get("content-type"),
+        )
+        # Forward Set-Cookie (critical for session management) and other headers
+        for key, value in resp.headers.multi_items():
+            if key.lower() in ("set-cookie", "location", "x-request-id"):
+                response.headers.append(key, value)
+        return response
+
 
 # ---------------------------------------------------------------------------
 # Routes

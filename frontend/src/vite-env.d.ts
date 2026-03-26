@@ -3,7 +3,7 @@
 declare const __APP_VERSION__: string;
 
 interface ImportMetaEnv {
-  readonly VITE_AUTH_URL?: string;
+  // No custom env vars needed — auth is proxied through the same origin
 }
 
 interface ImportMeta {

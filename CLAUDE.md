@@ -24,7 +24,7 @@ Current version: **v0.1.0**
 - **Hermes for AI evaluation.** Single-purpose agent constrained to structured JSON output. Config in `services/hermes/`. SOUL.md defines the persona.
 - **Environment variable management:** `infra/shared/.env` is the canonical env file. Copy from `infra/local/.env.example`.
 - **Docker Compose override:** Local dev mounts source directories for hot reload.
-- **better-auth authentication.** All `/api` routes require a valid session (cookie or Bearer token). `/health` is exempt. Auth service runs on port 3100. Supports email+password, Google OAuth, and GitHub OAuth.
+- **better-auth authentication.** All `/api` routes require a valid session (cookie or Bearer token). `/health` is exempt. Auth requests (`/api/auth/*`) are proxied through the FastAPI server to the internal auth service (port 3100 is not publicly exposed). Supports email+password, Google OAuth, and GitHub OAuth.
 - **Database:** Single Postgres instance. `temporal` database created by auto-setup. `app_db` created by `init-db.sql` with submissions, reviews, app_settings, and auth tables (user, session, account, verification).
 
 ## Test Credentials (Local Dev)

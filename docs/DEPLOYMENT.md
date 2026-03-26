@@ -77,7 +77,7 @@ This starts all 7 containers. First boot takes a few minutes as images are pulle
 | Service | URL | Purpose |
 |---|---|---|
 | Web UI | http://localhost:8000 | Main application |
-| Auth Service | http://localhost:3100 | Authentication API |
+| Auth Service | (internal, proxied via :8000/api/auth) | Authentication API |
 | Temporal UI | http://localhost:8233 | Workflow inspector |
 | PostgreSQL | localhost:5432 | Database (user: `temporal`, password: `temporal`) |
 | Hermes Gateway | http://localhost:8088 | AI agent API |
@@ -195,7 +195,7 @@ All variables are set in `infra/shared/.env`. The `.env` file is loaded by Docke
 | Variable | Service(s) | Default | Description |
 |---|---|---|---|
 | `AUTH_SECRET` | auth | `dev-secret-change-in-production` | Random string for signing sessions. **Must be set in production.** When unset/default, FastAPI backend bypasses auth. |
-| `VITE_AUTH_URL` | frontend (build-time) | `http://localhost:3100` | URL of the better-auth service for the frontend |
+| `AUTH_SERVICE_URL` | api (runtime) | `http://auth:3100` | Internal URL of the better-auth service (used by the API proxy) |
 | `GOOGLE_CLIENT_ID` | auth | (empty) | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | auth | (empty) | Google OAuth client secret |
 | `GITHUB_CLIENT_ID` | auth | (empty) | GitHub OAuth app client ID |
@@ -248,7 +248,6 @@ LLM_API_KEY=your-production-llm-api-key
 HERMES_MODEL_PROVIDER=openrouter
 SITE_DOMAIN=grades.yourdomain.com
 CORS_ORIGINS=https://grades.yourdomain.com
-VITE_AUTH_URL=https://grades.yourdomain.com/auth
 ```
 
 ### Step 3: Install Caddy
@@ -267,13 +266,8 @@ Create `/etc/caddy/Caddyfile`:
 
 ```
 grades.yourdomain.com {
-    # Main application (API + SPA)
+    # Main application (API + SPA + auth proxy)
     reverse_proxy localhost:8000
-
-    # Auth service
-    handle_path /auth/* {
-        reverse_proxy localhost:3100
-    }
 }
 ```
 
@@ -350,7 +344,7 @@ graph TB
         end
 
         Caddy -->|"/* → :8000"| API
-        Caddy -->|"/auth/* → :3100"| Auth
+        API -->|"/api/auth/* proxy"| Auth
     end
 
     subgraph "External"

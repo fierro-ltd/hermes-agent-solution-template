@@ -9,6 +9,7 @@ const port = Number(process.env.PORT || 3100);
 const trustedOrigins = [
   "http://localhost:5173",
   "http://localhost:8000",
+  "http://api:8000",
 ];
 
 const extraOrigins = process.env.CORS_ORIGINS?.split(",").filter(Boolean) ?? [];

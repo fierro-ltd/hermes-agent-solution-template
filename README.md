@@ -25,8 +25,8 @@ graph TB
         end
     end
 
-    Browser -->|"HTTP :8000<br/>API + SPA"| API
-    Browser -->|"HTTP :3100<br/>Login/Signup"| Auth
+    Browser -->|"HTTP :8000<br/>API + SPA + Auth"| API
+    API -->|"HTTP :3100<br/>Auth proxy"| Auth
 
     API -->|"gRPC :7233<br/>Start workflows, signals"| Temporal
     API -->|"SQL :5432<br/>Submissions, reviews"| Postgres
@@ -131,7 +131,7 @@ docker compose -f infra/shared/docker-compose.yml \
 # 5. Open the application
 #    Web UI:       http://localhost:8000
 #    Temporal UI:  http://localhost:8233
-#    Auth service: http://localhost:3100
+#    Auth (proxied): http://localhost:8000/api/auth
 ```
 
 ## Test Credentials (Local Development)
@@ -168,7 +168,7 @@ All configuration is managed through environment variables. Copy `infra/local/.e
 | `LLM_API_KEY` | LLM provider API key (OpenRouter, OpenCode Go, etc.) | required |
 | `HERMES_API_KEY` | Self-assigned key for Hermes gateway auth | required |
 | `AUTH_SECRET` | Random string for signing auth sessions | required in production |
-| `VITE_AUTH_URL` | URL of the better-auth service | `http://localhost:3100` |
+| `AUTH_SERVICE_URL` | Internal URL of the better-auth service (API proxy) | `http://auth:3100` |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID | optional |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | optional |
 | `GITHUB_CLIENT_ID` | GitHub OAuth app client ID | optional |

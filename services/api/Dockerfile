@@ -5,8 +5,6 @@ WORKDIR /app/frontend
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY frontend/ .
-ARG VITE_AUTH_URL
-ENV VITE_AUTH_URL=$VITE_AUTH_URL
 RUN pnpm build
 
 # Stage 2: Python API
