@@ -16,6 +16,8 @@ const extraOrigins = process.env.CORS_ORIGINS?.split(",").filter(Boolean) ?? [];
 trustedOrigins.push(...extraOrigins);
 
 const auth = betterAuth({
+  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:8000",
+  basePath: "/api/auth",
   database: new Pool({
     connectionString:
       process.env.DATABASE_URL ||
