@@ -1,0 +1,18 @@
+version: 1
+
+model:
+  provider: ${HERMES_MODEL_PROVIDER:-anthropic}
+
+api:
+  enabled: true
+  host: 0.0.0.0
+  port: 8088
+  api_key: ${HERMES_API_KEY:-}
+
+agent:
+  max_turns: 10
+  toolsets:
+    - web
+
+stt:
+  enabled: false
