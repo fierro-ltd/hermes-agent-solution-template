@@ -92,7 +92,7 @@ class GradingWorkflow:
                     params.submission_id,
                     professor_feedback,
                 ],
-                schedule_to_close_timeout=timedelta(minutes=15),
+                schedule_to_close_timeout=timedelta(minutes=25),
                 start_to_close_timeout=timedelta(seconds=180),
                 heartbeat_timeout=timedelta(seconds=30),
                 retry_policy=AGENT_RETRY_POLICY,
@@ -111,6 +111,7 @@ class GradingWorkflow:
                     params.submission_id,
                     feedback_json,
                     agent_feedback.suggested_score,
+                    self.review_cycles,
                 ],
                 start_to_close_timeout=timedelta(seconds=30),
                 retry_policy=RetryPolicy(
@@ -127,7 +128,6 @@ class GradingWorkflow:
                 notify_reviewer,
                 args=[
                     params.submission_id,
-                    "",  # student_name fetched separately if needed
                     agent_feedback.suggested_score,
                 ],
                 schedule_to_close_timeout=timedelta(minutes=5),
@@ -172,6 +172,35 @@ class GradingWorkflow:
                 )
                 continue
 
+            # Step 5b: Handle rejection explicitly
+            if decision.decision == "rejected":
+                self.status = "rejected"
+                await workflow.execute_activity(
+                    record_final_grade,
+                    args=[
+                        params.submission_id,
+                        review_id,
+                        decision.final_score if decision.final_score is not None else agent_feedback.suggested_score,
+                        decision.professor_notes,
+                        "rejected",
+                    ],
+                    start_to_close_timeout=timedelta(seconds=30),
+                    schedule_to_close_timeout=timedelta(minutes=5),
+                    retry_policy=RetryPolicy(
+                        maximum_attempts=5,
+                        initial_interval=timedelta(seconds=2),
+                        maximum_interval=timedelta(seconds=30),
+                    ),
+                )
+                return GradingResult(
+                    submission_id=params.submission_id,
+                    status="rejected",
+                    agent_feedback=agent_feedback,
+                    final_score=decision.final_score if decision.final_score is not None else agent_feedback.suggested_score,
+                    professor_notes=decision.professor_notes,
+                    review_cycles=self.review_cycles,
+                )
+
             # Step 6: Record final grade (Fix #5: add retry policy)
             self.status = "recording"
             await workflow.execute_activity(
@@ -181,6 +210,7 @@ class GradingWorkflow:
                     decision.review_id,
                     decision.final_score if decision.final_score is not None else agent_feedback.suggested_score,
                     decision.professor_notes,
+                    "approved",
                 ],
                 schedule_to_close_timeout=timedelta(minutes=5),
                 start_to_close_timeout=timedelta(seconds=30),

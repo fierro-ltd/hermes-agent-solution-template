@@ -95,14 +95,14 @@ class GradingWorkflow:
 @dataclass
 class GradingParams:          # Workflow input
     submission_id: str
-    student_name: str
-    rubric: str               # JSON rubric from app_settings
-    content: str              # Submission text content
+    student_name: str = ""    # Deprecated: kept for backward compatibility
+    rubric: str = ""          # Deprecated: kept for backward compatibility
+    content: str = ""         # Deprecated: kept for backward compatibility
 
 @dataclass
 class GradingResult:          # Workflow output
     submission_id: str
-    status: str               # "approved" or "timed_out"
+    status: str               # "approved", "rejected", "timed_out", or "max_cycles_reached"
     agent_feedback: AgentFeedback | None
     final_score: float | None
     professor_notes: str
@@ -170,29 +170,25 @@ The core AI grading activity. Calls the Hermes gateway to evaluate a student sub
 
 **Parameters:**
 - `submission_id` (str) -- UUID of the submission
-- `rubric` (str) -- JSON rubric from `app_settings`
-- `content` (str) -- Student's submission text
 - `professor_feedback` (str | None) -- Feedback from a previous review cycle (for re-evaluation)
 
 **What it does:**
-1. Reads LLM provider settings from `app_settings` table (provider, model, api_key)
-2. Builds a system prompt with the rubric (and professor feedback if re-evaluating)
-3. Calls `POST {HERMES_API_URL}/v1/chat/completions` with the system prompt and submission content
-4. Parses the structured JSON response (`suggested_score`, `strengths`, `weaknesses`, `reasoning`)
-5. Updates the submission status to `'review'` in Postgres
-6. Inserts a review record with `agent_feedback` (JSONB) and `suggested_score`
+1. Fetches submission content and rubric from the database using `submission_id`
+2. Reads LLM provider settings from `app_settings` table (provider, model, api_key)
+3. Builds a system prompt with the rubric (and professor feedback if re-evaluating)
+4. Calls `POST {HERMES_API_URL}/v1/chat/completions` with the system prompt and submission content
+5. Parses the structured JSON response (`suggested_score`, `strengths`, `weaknesses`, `reasoning`)
 
 **Returns:** `AgentFeedback` dataclass
 
-**Retry policy:** 3 attempts, exponential backoff (10s initial, 60s max), 120s timeout per attempt.
+**Retry policy:** 5 attempts, exponential backoff (10s initial, 5min max), 180s start_to_close timeout per attempt.
 
 ### `notify_reviewer`
 
 Notifies the professor that a submission is ready for review.
 
 **Parameters:**
-- `submission_id` (str) -- UUID of the submission
-- `student_name` (str) -- Name of the student
+- `submission_id` (str) -- UUID of the submission (student name fetched from DB)
 - `suggested_score` (float) -- AI's suggested score
 
 **What it does:**
@@ -203,17 +199,18 @@ Notifies the professor that a submission is ready for review.
 
 ### `record_final_grade`
 
-Records the approved final grade after professor approval.
+Records the final grade after professor approval or rejection.
 
 **Parameters:**
 - `submission_id` (str) -- UUID of the submission
 - `review_id` (str) -- UUID of the review record
 - `final_score` (float) -- The final grade
 - `professor_notes` (str) -- Professor's notes
+- `decision` (str, default `"approved"`) -- The professor's decision (`"approved"` or `"rejected"`)
 
 **What it does:**
-1. Updates the review record: sets `final_score`, `professor_notes`, `decision='approved'`, `decided_at`
-2. Updates the submission status to `'approved'`
+1. Updates the review record: sets `final_score`, `professor_notes`, `decision`, `decided_at`
+2. Updates the submission status to match the decision
 3. Future: Perform LTI grade passback to an LMS
 
 **Timeout:** 30 seconds, default retry policy.
@@ -387,9 +384,10 @@ The `evaluate_submission` activity uses a custom retry policy:
 
 ```python
 AGENT_RETRY_POLICY = RetryPolicy(
-    initial_interval=timedelta(seconds=10),  # First retry after 10s
-    maximum_interval=timedelta(seconds=60),  # Max wait between retries
-    maximum_attempts=3,                       # Total 3 attempts
+    initial_interval=timedelta(seconds=10),   # First retry after 10s
+    maximum_interval=timedelta(minutes=5),    # Max wait between retries
+    maximum_attempts=5,                       # Total 5 attempts
+    backoff_coefficient=2.0,
 )
 ```
 
@@ -400,11 +398,11 @@ This handles transient failures like:
 
 ### Activity timeouts
 
-| Activity | Timeout | Description |
-|---|---|---|
-| `evaluate_submission` | 120 seconds | LLM calls can take 30-60 seconds |
-| `notify_reviewer` | 30 seconds | Simple DB update |
-| `record_final_grade` | 30 seconds | Simple DB update |
+| Activity | start_to_close | schedule_to_close | Description |
+|---|---|---|---|
+| `evaluate_submission` | 180 seconds | 25 minutes | LLM calls can take 30-60 seconds |
+| `notify_reviewer` | 30 seconds | 5 minutes | Simple DB update |
+| `record_final_grade` | 30 seconds | 5 minutes | Simple DB update |
 
 ### What happens on failure
 
@@ -564,7 +562,7 @@ The GradingWorkflow implements Temporal AI agent best practices for reliability,
 | **Activity granularity: evaluate + persist as separate activities** | The LLM call (`evaluate_submission`) and the database write (`persist_review`) are separate activities. This means a crash after the LLM call but before the DB write does not require re-running the expensive LLM inference -- only the cheap DB write is retried. |
 | **Re-evaluation cycle cap (MAX_REVIEW_CYCLES = 10)** | The workflow enforces a hard cap of 10 re-evaluation cycles. If a professor requests re-evaluation beyond this limit, the workflow returns a result indicating the cap was reached. This prevents infinite loops and unbounded event history growth. |
 | **Retry policy tuning** | `maximum_interval` is set to 5 minutes (not unbounded) to avoid excessively long waits between retries. `maximum_attempts` is set to 5 to balance reliability with cost. `initial_interval` remains at 10 seconds for fast recovery from transient blips. |
-| **Timeout hierarchy** | Timeouts follow the Temporal best practice: `schedule_to_close_timeout` (hard cap across all retries) > `start_to_close_timeout` (single attempt limit) > `heartbeat_timeout` (crash detection interval). For `evaluate_submission`: schedule_to_close = 10 min, start_to_close = 2 min, heartbeat_timeout = 30s. |
+| **Timeout hierarchy** | Timeouts follow the Temporal best practice: `schedule_to_close_timeout` (hard cap across all retries) > `start_to_close_timeout` (single attempt limit) > `heartbeat_timeout` (crash detection interval). For `evaluate_submission`: schedule_to_close = 25 min, start_to_close = 180s, heartbeat_timeout = 30s. |
 | **Idempotent workflow starts with REJECT_DUPLICATE** | The API starts workflows with `id_conflict_policy=REJECT_DUPLICATE`. If a submission already has a running workflow, the start call is rejected rather than creating a duplicate. This prevents double-grading from UI retries or network glitches. |
 | **Rate limit handling (429 with Retry-After)** | When the LLM provider returns HTTP 429 (rate limited), the activity reads the `Retry-After` header and raises a retryable `ApplicationError` with a suggested backoff. Temporal's retry policy then waits the appropriate interval before the next attempt, respecting the provider's rate limit window. |
 
@@ -610,8 +608,8 @@ except httpx.HTTPStatusError as e:
 ### Timeout hierarchy detail
 
 ```
-schedule_to_close_timeout = 10 min  (hard cap: total wall time including all retries)
-  └── start_to_close_timeout = 2 min  (single attempt: one LLM call)
+schedule_to_close_timeout = 25 min  (hard cap: total wall time including all retries)
+  └── start_to_close_timeout = 180s  (single attempt: one LLM call)
         └── heartbeat_timeout = 30s  (crash detection: worker liveness)
 ```
 

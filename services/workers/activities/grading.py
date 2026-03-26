@@ -132,8 +132,8 @@ def _parse_agent_response(raw: str) -> AgentFeedback:
 async def _heartbeat_loop() -> None:
     """Send periodic heartbeats while awaiting a long-running LLM call."""
     while True:
-        await asyncio.sleep(10)
         activity.heartbeat("awaiting LLM response")
+        await asyncio.sleep(10)
 
 
 # ---------------------------------------------------------------------------
@@ -257,18 +257,19 @@ async def persist_review(
     submission_id: str,
     feedback_json: str,
     suggested_score: float,
+    review_cycle: int = 1,
 ) -> str:
     """Persist a review record in Postgres and return the review ID.
 
-    Uses a deterministic review ID derived from the workflow run ID to ensure
-    idempotent writes on activity retries (Fix #3).
+    Uses a deterministic review ID derived from the workflow run ID and review
+    cycle to ensure idempotent writes on activity retries (Fix #3).
     """
-    activity.logger.info("Persisting review for submission %s", submission_id)
+    activity.logger.info("Persisting review for submission %s (cycle %d)", submission_id, review_cycle)
 
     # Fix #3: Deterministic review ID from workflow context for idempotency
     info = activity.info()
     review_id = str(
-        uuid.uuid5(uuid.NAMESPACE_DNS, f"{info.workflow_run_id}-eval-{submission_id}")
+        uuid.uuid5(uuid.NAMESPACE_DNS, f"{info.workflow_run_id}-eval-{submission_id}-cycle-{review_cycle}")
     )
 
     pool = await _get_db_pool()
@@ -301,14 +302,23 @@ async def persist_review(
 @activity.defn
 async def notify_reviewer(
     submission_id: str,
-    student_name: str,
     suggested_score: float,
 ) -> None:
     """Notify the reviewer that a submission is ready for review.
 
-    Currently updates the submission status in Postgres.  Future versions
-    will send email / WhatsApp / Slack notifications.
+    Fetches the student name from the database.  Currently updates the
+    submission status in Postgres.  Future versions will send email /
+    WhatsApp / Slack notifications.
     """
+    pool = await _get_db_pool()
+
+    # Fetch student_name from the submissions table
+    row = await pool.fetchrow(
+        "SELECT student_name FROM submissions WHERE id = $1",
+        submission_id,
+    )
+    student_name = row["student_name"] if row else ""
+
     activity.logger.info(
         "Notifying reviewer for submission %s (student=%s, score=%.1f)",
         submission_id,
@@ -316,7 +326,6 @@ async def notify_reviewer(
         suggested_score,
     )
 
-    pool = await _get_db_pool()
     async with pool.acquire() as conn:
         await conn.execute(
             "UPDATE submissions SET status = 'review' WHERE id = $1",
@@ -330,17 +339,19 @@ async def record_final_grade(
     review_id: str,
     final_score: float,
     professor_notes: str,
+    decision: str = "approved",
 ) -> None:
-    """Record the approved final grade in the database.
+    """Record the final grade in the database.
 
     Updates the review record with the professor's decision and sets the
-    submission status to 'approved'.  Future versions will perform LTI
+    submission status accordingly.  Future versions will perform LTI
     grade passback.
     """
     activity.logger.info(
-        "Recording final grade for submission %s: score=%.1f",
+        "Recording final grade for submission %s: score=%.1f decision=%s",
         submission_id,
         final_score,
+        decision,
     )
 
     now = datetime.now(timezone.utc)
@@ -351,16 +362,18 @@ async def record_final_grade(
             UPDATE reviews
             SET final_score = $1,
                 professor_notes = $2,
-                decision = 'approved',
-                decided_at = $3
-            WHERE id = $4
+                decision = $3,
+                decided_at = $4
+            WHERE id = $5
             """,
             final_score,
             professor_notes,
+            decision,
             now,
             review_id,
         )
         await conn.execute(
-            "UPDATE submissions SET status = 'approved' WHERE id = $1",
+            "UPDATE submissions SET status = $1 WHERE id = $2",
+            decision,
             submission_id,
         )

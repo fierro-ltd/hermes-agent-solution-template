@@ -29,6 +29,9 @@ class GradingParams:
     """Input parameters for the GradingWorkflow."""
 
     submission_id: str
+    student_name: str = ""  # Kept for backward compatibility with in-flight workflows
+    rubric: str = ""        # Kept for backward compatibility
+    content: str = ""       # Kept for backward compatibility
 
 
 @dataclass
