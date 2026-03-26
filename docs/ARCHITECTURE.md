@@ -325,6 +325,46 @@ sequenceDiagram
 
 ---
 
+## Temporal Activity Design
+
+The Temporal activities in this template follow AI agent best practices for reliability and efficiency. This section explains the key design decisions.
+
+### Why activities are split (LLM call vs DB write)
+
+The `evaluate_submission` activity (LLM call) and `persist_review` activity (DB write) are separate activities rather than a single combined operation. This matters because:
+
+- **LLM calls are expensive and slow.** If a single activity performed both the LLM call and the DB write, a crash after the LLM response but before the DB commit would require re-running the entire LLM inference on retry. With separate activities, only the cheap DB write is retried.
+- **Different retry characteristics.** LLM calls may fail due to rate limits or provider outages (retryable with backoff). DB writes may fail due to connection issues (retryable quickly). Separating them allows each activity to have its own retry policy tuned to its failure mode.
+- **Idempotency is easier to guarantee.** The DB write activity uses deterministic review IDs and ON CONFLICT upserts, making it safe to retry. The LLM call activity is inherently non-idempotent (each call may produce different output), so minimizing unnecessary re-calls is important.
+
+### Heartbeat pattern for long-running LLM calls
+
+LLM inference can take 30-60 seconds. Without heartbeats, Temporal cannot distinguish between "the activity is still running" and "the worker crashed." The `evaluate_submission` activity sends heartbeats every 10 seconds while waiting for the LLM response.
+
+This enables a `heartbeat_timeout` of 30 seconds -- if three consecutive heartbeats are missed, Temporal assumes the worker is dead and reschedules the activity. Without heartbeats, crash detection would depend on the full `start_to_close_timeout` (2 minutes), leaving the workflow stalled for much longer.
+
+### Error classification for retry correctness
+
+Not all errors should be retried. The activities classify HTTP errors into two categories:
+
+| Error Type | HTTP Status | Retryable? | Rationale |
+|---|---|---|---|
+| Rate limit | 429 | Yes | Provider is temporarily overloaded; respect `Retry-After` header |
+| Server error | 5xx | Yes | Transient infrastructure failure; likely to resolve on retry |
+| Client error | 4xx (not 429) | No | Bad request, auth failure, or invalid input; retrying will not help |
+
+Client errors are raised as `ApplicationError(non_retryable=True)`, which tells Temporal to fail the activity immediately without consuming remaining retry attempts. This prevents wasting time and API quota on requests that will never succeed.
+
+### Data passing strategy (DB reference vs payload)
+
+Activities receive `submission_id` rather than the full submission content. The activity fetches the content from PostgreSQL at execution time. This design choice has three benefits:
+
+1. **Small event history.** Temporal persists every activity input in its event history. Passing a UUID (36 bytes) instead of a full essay (potentially hundreds of KB) keeps the history compact and fast to replay.
+2. **Avoids payload limits.** Temporal has a default 2MB payload limit. Large submissions or file attachments could exceed this if passed directly.
+3. **Fresh data.** If submission content is updated between retries (unlikely but possible), the activity always reads the latest version from the database.
+
+---
+
 ## See Also
 
 - [API Reference](./API.md) -- Complete endpoint documentation

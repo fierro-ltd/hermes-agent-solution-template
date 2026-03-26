@@ -20,7 +20,7 @@ Current version: **v0.1.0**
 ## Key Patterns
 
 - **Frontend bundled into API container.** Vite builds to `dist/`, FastAPI serves static files + SPA fallback. No separate frontend Docker service. Dev server: `cd frontend && pnpm dev` (proxies API to :8000).
-- **Temporal for durable workflows.** Submission processing, AI evaluation, and human review signals all use Temporal workflows for durability and retry. The grading demo showcases this pattern; it generalizes to any evaluate → review → approve workflow.
+- **Temporal for durable workflows.** Submission processing, AI evaluation, and human review signals all use Temporal workflows for durability and retry. The grading demo showcases this pattern; it generalizes to any evaluate → review → approve workflow. Temporal activities follow Temporal AI agent best practices: heartbeats during LLM calls, non-retryable error classification for 4xx, idempotent DB writes, content passed by reference not value, rate limit handling with Retry-After headers.
 - **Hermes for AI evaluation.** Single-purpose agent constrained to structured JSON output. Config in `services/hermes/`. SOUL.md defines the persona.
 - **Environment variable management:** `infra/shared/.env` is the canonical env file. Copy from `infra/local/.env.example`.
 - **Docker Compose override:** Local dev mounts source directories for hot reload.

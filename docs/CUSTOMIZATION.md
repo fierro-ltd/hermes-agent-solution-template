@@ -317,6 +317,77 @@ Update SOUL.md to emphasize essay-specific evaluation.
 
 ---
 
+## Temporal Best Practices for Custom Workflows
+
+When building your own workflows, follow these best practices to ensure reliability and correctness.
+
+### Always use heartbeats in activities that make external API calls
+
+Any activity that calls an external service (LLM provider, third-party API, webhook) should send periodic heartbeats. This allows Temporal to detect worker crashes and reschedule the activity promptly. Without heartbeats, Temporal must wait for the full `start_to_close_timeout` before assuming the worker is dead.
+
+```python
+@activity.defn
+async def call_external_api(item_id: str) -> dict:
+    task = asyncio.create_task(make_api_call(item_id))
+    while not task.done():
+        activity.heartbeat("waiting for response")
+        await asyncio.wait([task], timeout=10)
+    return await task
+```
+
+### Classify errors as retryable vs non-retryable using ApplicationError
+
+Not all errors should be retried. Use `ApplicationError(non_retryable=True)` for errors that will never succeed on retry (invalid input, authentication failures, HTTP 4xx). Let 5xx and network errors remain retryable. This prevents wasting retry attempts and API quota on doomed requests.
+
+```python
+from temporalio.exceptions import ApplicationError
+
+if response.status_code == 429:
+    raise ApplicationError("Rate limited", non_retryable=False)
+elif 400 <= response.status_code < 500:
+    raise ApplicationError(f"Client error: {response.status_code}", non_retryable=True)
+```
+
+### Keep activity payloads small -- pass IDs, fetch data inside the activity
+
+Pass identifiers (submission ID, document ID) to activities rather than full content. Activities should fetch the data they need from the database at execution time. This keeps Temporal's event history compact, avoids the 2MB payload limit, and ensures fresh data on retries.
+
+### Set schedule_to_close_timeout as a hard cap across all retries
+
+Use `schedule_to_close_timeout` to set an absolute wall-clock limit for an activity including all retries. Use `start_to_close_timeout` for per-attempt limits. Use `heartbeat_timeout` for crash detection. The hierarchy should always be: `schedule_to_close > start_to_close > heartbeat_timeout`.
+
+```python
+await workflow.execute_activity(
+    my_activity,
+    args=[item_id],
+    schedule_to_close_timeout=timedelta(minutes=10),  # hard cap
+    start_to_close_timeout=timedelta(minutes=2),       # per attempt
+    heartbeat_timeout=timedelta(seconds=30),            # crash detection
+    retry_policy=RetryPolicy(maximum_attempts=5),
+)
+```
+
+### Disable client-side retries (let Temporal handle it)
+
+Do not add retry logic inside your activity code (e.g., `tenacity`, retry loops, or `httpx` retries). Let Temporal's retry policy handle all retries. Client-side retries inside an activity are invisible to Temporal and can cause confusing behavior -- the activity appears to be running normally while silently burning through retries.
+
+### Add cycle caps to any looping workflow
+
+If your workflow contains a loop (e.g., re-evaluation, multi-step review, iterative processing), enforce a hard cap on the number of iterations. This prevents infinite loops from unbounded event history growth, runaway costs, and workflows that never complete.
+
+```python
+MAX_CYCLES = 10
+
+while cycle < MAX_CYCLES:
+    result = await workflow.execute_activity(evaluate, ...)
+    decision = await wait_for_review()
+    if decision != "re-evaluate":
+        break
+    cycle += 1
+```
+
+---
+
 ## Adding New Temporal Workflows
 
 See [Workflows - Extending with New Workflows](./WORKFLOWS.md#extending-with-new-workflows) for the detailed step-by-step guide.

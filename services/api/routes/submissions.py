@@ -7,6 +7,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form, status
+from temporalio.common import WorkflowIDReusePolicy
 
 from services.api import deps
 from services.api.schemas import (
@@ -69,21 +70,13 @@ async def create_submission(
 
     from services.workers.schemas import GradingParams
 
-    # Fetch rubric from settings (fall back to empty string)
-    rubric = await pool.fetchval(
-        "SELECT value FROM app_settings WHERE key = 'rubric'"
-    ) or ""
-
+    # Fix #9: Idempotent workflow start — reject duplicate workflow IDs
     await temporal.start_workflow(
         "GradingWorkflow",
-        GradingParams(
-            submission_id=str(submission_id),
-            student_name=student_name,
-            rubric=rubric,
-            content=submission_content,
-        ),
+        GradingParams(submission_id=str(submission_id)),
         id=workflow_id,
         task_queue=GRADING_TASK_QUEUE,
+        id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
     )
 
     # Store workflow_id back on the submission

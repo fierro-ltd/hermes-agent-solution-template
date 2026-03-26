@@ -551,6 +551,74 @@ Start the services and verify in the Temporal UI that your workflow appears and 
 
 ---
 
+## Temporal Best Practices Applied
+
+The GradingWorkflow implements Temporal AI agent best practices for reliability, correctness, and efficiency. The following table summarizes each practice and how it is applied.
+
+| Practice | Implementation |
+|---|---|
+| **Activity heartbeats during LLM calls** | The `evaluate_submission` activity sends periodic heartbeats while waiting for the LLM response. This allows Temporal to detect worker crashes mid-inference and reschedule the activity promptly, rather than waiting for the full `start_to_close_timeout` to expire. |
+| **Non-retryable error classification (4xx vs 5xx)** | HTTP 4xx errors (bad request, authentication failure, invalid rubric) are raised as `ApplicationError` with `non_retryable=True`. Retrying a malformed request will never succeed, so it fails fast. HTTP 5xx and network errors remain retryable under the normal retry policy. |
+| **Idempotent DB writes with deterministic review IDs** | Review records use deterministic IDs derived from `submission_id` and `review_cycle` (e.g., `uuid5(submission_id, str(cycle))`). If an activity retries after a crash, the INSERT uses an ON CONFLICT clause so the same review is upserted rather than duplicated. |
+| **Submission content passed by reference (ID), not by value** | The workflow passes `submission_id` to activities, not the full submission text. Activities fetch content from the database. This keeps Temporal event history small and avoids the 2MB payload limit for large submissions. |
+| **Activity granularity: evaluate + persist as separate activities** | The LLM call (`evaluate_submission`) and the database write (`persist_review`) are separate activities. This means a crash after the LLM call but before the DB write does not require re-running the expensive LLM inference -- only the cheap DB write is retried. |
+| **Re-evaluation cycle cap (MAX_REVIEW_CYCLES = 10)** | The workflow enforces a hard cap of 10 re-evaluation cycles. If a professor requests re-evaluation beyond this limit, the workflow returns a result indicating the cap was reached. This prevents infinite loops and unbounded event history growth. |
+| **Retry policy tuning** | `maximum_interval` is set to 5 minutes (not unbounded) to avoid excessively long waits between retries. `maximum_attempts` is set to 5 to balance reliability with cost. `initial_interval` remains at 10 seconds for fast recovery from transient blips. |
+| **Timeout hierarchy** | Timeouts follow the Temporal best practice: `schedule_to_close_timeout` (hard cap across all retries) > `start_to_close_timeout` (single attempt limit) > `heartbeat_timeout` (crash detection interval). For `evaluate_submission`: schedule_to_close = 10 min, start_to_close = 2 min, heartbeat_timeout = 30s. |
+| **Idempotent workflow starts with REJECT_DUPLICATE** | The API starts workflows with `id_conflict_policy=REJECT_DUPLICATE`. If a submission already has a running workflow, the start call is rejected rather than creating a duplicate. This prevents double-grading from UI retries or network glitches. |
+| **Rate limit handling (429 with Retry-After)** | When the LLM provider returns HTTP 429 (rate limited), the activity reads the `Retry-After` header and raises a retryable `ApplicationError` with a suggested backoff. Temporal's retry policy then waits the appropriate interval before the next attempt, respecting the provider's rate limit window. |
+
+### Heartbeat pattern detail
+
+During LLM inference, the activity heartbeats every 10 seconds:
+
+```python
+@activity.defn
+async def evaluate_submission(submission_id: str, ...) -> AgentFeedback:
+    # ... build prompt ...
+    task = asyncio.create_task(call_llm(prompt))
+    while not task.done():
+        activity.heartbeat("waiting for LLM response")
+        await asyncio.wait([task], timeout=10)
+    response = await task
+    # ... parse response ...
+```
+
+If the worker crashes, Temporal detects the missing heartbeat within `heartbeat_timeout` (30s) and reschedules the activity on another worker.
+
+### Error classification detail
+
+```python
+try:
+    response = await httpx_client.post(url, json=payload)
+    response.raise_for_status()
+except httpx.HTTPStatusError as e:
+    if e.response.status_code == 429:
+        retry_after = int(e.response.headers.get("Retry-After", 60))
+        raise ApplicationError(
+            f"Rate limited, retry after {retry_after}s",
+            non_retryable=False,
+        )
+    elif 400 <= e.response.status_code < 500:
+        raise ApplicationError(
+            f"Client error {e.response.status_code}: {e.response.text}",
+            non_retryable=True,
+        )
+    raise  # 5xx errors are retryable by default
+```
+
+### Timeout hierarchy detail
+
+```
+schedule_to_close_timeout = 10 min  (hard cap: total wall time including all retries)
+  └── start_to_close_timeout = 2 min  (single attempt: one LLM call)
+        └── heartbeat_timeout = 30s  (crash detection: worker liveness)
+```
+
+The `schedule_to_close_timeout` acts as the ultimate safety net. Even if retries keep failing, the activity will not run forever.
+
+---
+
 ## See Also
 
 - [Architecture](./ARCHITECTURE.md) -- How Temporal fits in the overall system

@@ -111,6 +111,8 @@ sequenceDiagram
     W-->>T: Workflow COMPLETE
 ```
 
+The workflow is durable -- if the server crashes during grading, it resumes exactly where it left off. LLM calls use heartbeats for crash detection, idempotent writes prevent duplicates on retry, and rate limits are respected automatically.
+
 ## Quick Start
 
 ```bash

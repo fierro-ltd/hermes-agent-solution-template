@@ -29,9 +29,6 @@ class GradingParams:
     """Input parameters for the GradingWorkflow."""
 
     submission_id: str
-    student_name: str
-    rubric: str
-    content: str
 
 
 @dataclass

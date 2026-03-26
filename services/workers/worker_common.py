@@ -11,6 +11,7 @@ from temporalio.worker import Worker
 from services.workers.activities.grading import (
     evaluate_submission,
     notify_reviewer,
+    persist_review,
     record_final_grade,
 )
 
@@ -20,10 +21,12 @@ from services.workers.activities.grading import (
 
 GRADING_TASK_QUEUE = "grading-queue"
 
+# Fix #6: Single source of truth for retry policy
 AGENT_RETRY_POLICY = RetryPolicy(
     initial_interval=timedelta(seconds=10),
-    maximum_interval=timedelta(seconds=60),
-    maximum_attempts=3,
+    maximum_interval=timedelta(minutes=5),
+    maximum_attempts=5,
+    backoff_coefficient=2.0,
 )
 
 DEFAULT_ACTIVITY_TIMEOUT = timedelta(seconds=120)
@@ -36,6 +39,7 @@ REVIEW_WAIT_TIMEOUT = timedelta(days=7)
 
 ACTIVITIES = [
     evaluate_submission,
+    persist_review,
     notify_reviewer,
     record_final_grade,
 ]

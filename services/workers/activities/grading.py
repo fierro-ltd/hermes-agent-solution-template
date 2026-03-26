@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 import os
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
 from services.workers.schemas import AgentFeedback
 
@@ -125,6 +129,13 @@ def _parse_agent_response(raw: str) -> AgentFeedback:
     )
 
 
+async def _heartbeat_loop() -> None:
+    """Send periodic heartbeats while awaiting a long-running LLM call."""
+    while True:
+        await asyncio.sleep(10)
+        activity.heartbeat("awaiting LLM response")
+
+
 # ---------------------------------------------------------------------------
 # Activities
 # ---------------------------------------------------------------------------
@@ -133,20 +144,36 @@ def _parse_agent_response(raw: str) -> AgentFeedback:
 @activity.defn
 async def evaluate_submission(
     submission_id: str,
-    rubric: str,
-    content: str,
     professor_feedback: str | None = None,
 ) -> AgentFeedback:
     """Call the Hermes AI agent to evaluate a student submission.
 
-    Sends the rubric and submission content to the Hermes chat completions
-    endpoint, parses the structured JSON response, and persists a review
-    record in Postgres.
+    Reads submission content and rubric from the database, sends them to the
+    Hermes chat completions endpoint, and returns structured feedback.
+    Temporal handles retries — httpx client does not retry on its own.
     """
     activity.logger.info("Evaluating submission %s", submission_id)
 
-    # Read provider/model settings from the database
     pool = await _get_db_pool()
+
+    # Fetch submission content from DB (Fix #4: pass only submission_id)
+    row = await pool.fetchrow(
+        "SELECT content FROM submissions WHERE id = $1",
+        submission_id,
+    )
+    if not row:
+        raise ApplicationError(
+            f"Submission {submission_id} not found",
+            non_retryable=True,
+        )
+    content = row["content"]
+
+    # Fetch rubric from app_settings
+    rubric = await pool.fetchval(
+        "SELECT value FROM app_settings WHERE key = 'rubric'"
+    ) or ""
+
+    # Read provider/model settings from the database
     provider_settings = await _get_provider_settings(pool)
     model = provider_settings["model"]
     api_key = provider_settings["api_key"]
@@ -173,40 +200,49 @@ async def evaluate_submission(
         "temperature": 0.3,
     }
 
-    async with httpx.AsyncClient(timeout=90.0) as client:
-        response = await client.post(
-            f"{HERMES_API_URL}/v1/chat/completions",
-            json=payload,
-            headers=headers,
-        )
+    # Fix #1: Heartbeat loop keeps Temporal informed during long LLM calls
+    heartbeat_task = asyncio.create_task(_heartbeat_loop())
+    try:
+        # Fix #10: httpx does not retry by default — Temporal handles retries
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            response = await client.post(
+                f"{HERMES_API_URL}/v1/chat/completions",
+                json=payload,
+                headers=headers,
+            )
+    finally:
+        heartbeat_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await heartbeat_task
+
+    # Fix #2: Classify non-retryable HTTP errors
+    try:
         response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        if 400 <= status < 500 and status != 429:
+            raise ApplicationError(
+                f"LLM request failed: HTTP {status}",
+                non_retryable=True,
+            ) from exc
+        # For 429, respect Retry-After header
+        if status == 429:
+            retry_after = exc.response.headers.get("retry-after")
+            delay = None
+            if retry_after:
+                try:
+                    delay = timedelta(seconds=min(int(retry_after), 60))
+                except ValueError:
+                    pass
+            raise ApplicationError(
+                "Rate limited (429)",
+                non_retryable=False,
+                next_retry_delay=delay,
+            ) from exc
+        raise  # 5xx remains retryable
 
     raw_content = response.json()["choices"][0]["message"]["content"]
     feedback = _parse_agent_response(raw_content)
-
-    # Persist to database
-    agent_feedback_json = json.dumps({
-        "suggested_score": feedback.suggested_score,
-        "strengths": feedback.strengths,
-        "weaknesses": feedback.weaknesses,
-        "reasoning": feedback.reasoning,
-    })
-
-    async with pool.acquire() as conn:
-        await conn.execute(
-            "UPDATE submissions SET status = 'review' WHERE id = $1",
-            submission_id,
-        )
-        await conn.execute(
-            """
-            INSERT INTO reviews (submission_id, agent_feedback, suggested_score, created_at)
-            VALUES ($1, $2::jsonb, $3, $4)
-            """,
-            submission_id,
-            agent_feedback_json,
-            feedback.suggested_score,
-            datetime.now(timezone.utc),
-        )
 
     activity.logger.info(
         "Submission %s evaluated: score=%.1f",
@@ -214,6 +250,52 @@ async def evaluate_submission(
         feedback.suggested_score,
     )
     return feedback
+
+
+@activity.defn
+async def persist_review(
+    submission_id: str,
+    feedback_json: str,
+    suggested_score: float,
+) -> str:
+    """Persist a review record in Postgres and return the review ID.
+
+    Uses a deterministic review ID derived from the workflow run ID to ensure
+    idempotent writes on activity retries (Fix #3).
+    """
+    activity.logger.info("Persisting review for submission %s", submission_id)
+
+    # Fix #3: Deterministic review ID from workflow context for idempotency
+    info = activity.info()
+    review_id = str(
+        uuid.uuid5(uuid.NAMESPACE_DNS, f"{info.workflow_run_id}-eval-{submission_id}")
+    )
+
+    pool = await _get_db_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE submissions SET status = 'review' WHERE id = $1",
+            submission_id,
+        )
+        # Fix #3: ON CONFLICT for idempotent inserts
+        await conn.execute(
+            """
+            INSERT INTO reviews (id, submission_id, agent_feedback, suggested_score, created_at)
+            VALUES ($1, $2, $3::jsonb, $4, $5)
+            ON CONFLICT (id) DO UPDATE SET
+                agent_feedback = EXCLUDED.agent_feedback,
+                suggested_score = EXCLUDED.suggested_score,
+                created_at = EXCLUDED.created_at
+            """,
+            review_id,
+            submission_id,
+            feedback_json,
+            suggested_score,
+            datetime.now(timezone.utc),
+        )
+
+    activity.logger.info("Persisted review %s for submission %s", review_id, submission_id)
+    return review_id
 
 
 @activity.defn

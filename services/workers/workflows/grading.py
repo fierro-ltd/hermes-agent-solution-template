@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 
 from temporalio import workflow
@@ -11,6 +12,7 @@ with workflow.unsafe.imports_passed_through():
     from services.workers.activities.grading import (
         evaluate_submission,
         notify_reviewer,
+        persist_review,
         record_final_grade,
     )
     from services.workers.schemas import (
@@ -19,14 +21,11 @@ with workflow.unsafe.imports_passed_through():
         GradingResult,
         ReviewDecision,
     )
+    # Fix #6: Import shared constants instead of duplicating them
+    from services.workers.worker_common import AGENT_RETRY_POLICY, REVIEW_WAIT_TIMEOUT
 
-AGENT_RETRY_POLICY = RetryPolicy(
-    initial_interval=timedelta(seconds=10),
-    maximum_interval=timedelta(seconds=60),
-    maximum_attempts=3,
-)
-
-REVIEW_WAIT_TIMEOUT = timedelta(days=7)
+# Fix #8: Cap the number of re-evaluation cycles
+MAX_REVIEW_CYCLES = 10
 
 
 @workflow.defn
@@ -68,36 +67,79 @@ class GradingWorkflow:
         agent_feedback: AgentFeedback | None = None
 
         while True:
+            # Fix #8: Guard against unbounded re-evaluation cycles
+            if self.review_cycles >= MAX_REVIEW_CYCLES:
+                workflow.logger.warning(
+                    "Max review cycles (%d) reached for submission %s",
+                    MAX_REVIEW_CYCLES,
+                    params.submission_id,
+                )
+                self.status = "max_cycles_reached"
+                return GradingResult(
+                    submission_id=params.submission_id,
+                    status="max_cycles_reached",
+                    agent_feedback=agent_feedback,
+                    review_cycles=self.review_cycles,
+                )
+
             self.review_cycles += 1
             self.status = "evaluating"
 
-            # Step 1: AI evaluation
+            # Step 1: AI evaluation (Fix #5: proper timeouts + heartbeat)
             agent_feedback = await workflow.execute_activity(
                 evaluate_submission,
                 args=[
                     params.submission_id,
-                    params.rubric,
-                    params.content,
                     professor_feedback,
                 ],
-                start_to_close_timeout=timedelta(seconds=120),
+                schedule_to_close_timeout=timedelta(minutes=15),
+                start_to_close_timeout=timedelta(seconds=180),
+                heartbeat_timeout=timedelta(seconds=30),
                 retry_policy=AGENT_RETRY_POLICY,
+            )
+
+            # Step 2: Persist review (Fix #7: split from evaluate_submission)
+            feedback_json = json.dumps({
+                "suggested_score": agent_feedback.suggested_score,
+                "strengths": agent_feedback.strengths,
+                "weaknesses": agent_feedback.weaknesses,
+                "reasoning": agent_feedback.reasoning,
+            })
+            review_id = await workflow.execute_activity(
+                persist_review,
+                args=[
+                    params.submission_id,
+                    feedback_json,
+                    agent_feedback.suggested_score,
+                ],
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(
+                    maximum_attempts=5,
+                    initial_interval=timedelta(seconds=2),
+                    maximum_interval=timedelta(seconds=30),
+                ),
             )
 
             self.status = "review"
 
-            # Step 2: Notify reviewer
+            # Step 3: Notify reviewer (Fix #5: add retry policy)
             await workflow.execute_activity(
                 notify_reviewer,
                 args=[
                     params.submission_id,
-                    params.student_name,
+                    "",  # student_name fetched separately if needed
                     agent_feedback.suggested_score,
                 ],
+                schedule_to_close_timeout=timedelta(minutes=5),
                 start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(
+                    maximum_attempts=5,
+                    initial_interval=timedelta(seconds=2),
+                    maximum_interval=timedelta(seconds=30),
+                ),
             )
 
-            # Step 3: Wait for professor signal (up to 7 days)
+            # Step 4: Wait for professor signal (up to 7 days)
             self.review_decision = None
 
             try:
@@ -120,7 +162,7 @@ class GradingWorkflow:
             decision = self.review_decision
             assert decision is not None
 
-            # Step 4: Re-evaluate if requested
+            # Step 5: Re-evaluate if requested
             if decision.decision == "re-evaluate":
                 professor_feedback = decision.professor_notes
                 workflow.logger.info(
@@ -130,7 +172,7 @@ class GradingWorkflow:
                 )
                 continue
 
-            # Step 5: Record final grade
+            # Step 6: Record final grade (Fix #5: add retry policy)
             self.status = "recording"
             await workflow.execute_activity(
                 record_final_grade,
@@ -140,7 +182,13 @@ class GradingWorkflow:
                     decision.final_score if decision.final_score is not None else agent_feedback.suggested_score,
                     decision.professor_notes,
                 ],
+                schedule_to_close_timeout=timedelta(minutes=5),
                 start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(
+                    maximum_attempts=5,
+                    initial_interval=timedelta(seconds=2),
+                    maximum_interval=timedelta(seconds=30),
+                ),
             )
 
             self.status = "approved"
