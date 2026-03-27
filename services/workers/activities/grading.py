@@ -194,7 +194,7 @@ def _split_message_into_steps(content: str, base_ts: float, total_elapsed: float
                     plain = re.sub(r'[#*_`]', '', para).strip()
                     steps.append({
                         "type": "reasoning",
-                        "content": plain[:300],
+                        "content": plain[:1000],
                         "timestamp": ts,
                     })
             else:
@@ -202,7 +202,7 @@ def _split_message_into_steps(content: str, base_ts: float, total_elapsed: float
                 plain = re.sub(r'[#*_`]', '', reasoning_text).strip()
                 steps.append({
                     "type": "reasoning",
-                    "content": plain[:300],
+                    "content": plain[:1000],
                     "timestamp": base_ts,
                 })
         else:
@@ -211,7 +211,7 @@ def _split_message_into_steps(content: str, base_ts: float, total_elapsed: float
                 plain = re.sub(r'[#*_`]', '', sections[0]).strip()
                 steps.append({
                     "type": "reasoning",
-                    "content": plain[:300],
+                    "content": plain[:1000],
                     "timestamp": base_ts,
                 })
 
@@ -221,7 +221,7 @@ def _split_message_into_steps(content: str, base_ts: float, total_elapsed: float
                 body_plain = re.sub(r'[#*_`]', '', body).strip()
                 frac = (len(steps) + 1) / max(len(sections) // 2 + 1, 2)
                 ts = round(base_ts + frac * total_elapsed * 0.8, 1)
-                summary = f"{header}: {body_plain[:200]}" if body_plain else header
+                summary = f"{header}: {body_plain[:800]}" if body_plain else header
                 steps.append({
                     "type": "reasoning",
                     "content": summary,
