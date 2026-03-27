@@ -35,10 +35,6 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
-import examImg01 from "../../../../sample_data/exams/examen-01.jpeg";
-import examImg02 from "../../../../sample_data/exams/examen-02.png";
-import examImg03 from "../../../../sample_data/exams/examen-03.png";
-
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
 });
@@ -117,7 +113,7 @@ Respuesta: El sistema de encomiendas fue una institucion colonial espanola que a
     label: "Mec. Fluidos — UTN",
     title: "Mecánica de los Fluidos — 1° Parcial",
     student_name: "Matías Magallanos",
-    imageSrc: examImg01,
+    imageSrc: "/samples/examen-01.jpeg",
     fileName: "examen-01.jpeg",
   },
   {
@@ -125,7 +121,7 @@ Respuesta: El sistema de encomiendas fue una institucion colonial espanola que a
     label: "Ing. Mecánica B — UTN",
     title: "Ingeniería Mecánica B — Examen",
     student_name: "Nasello Cuonatto",
-    imageSrc: examImg02,
+    imageSrc: "/samples/examen-02.png",
     fileName: "examen-02.png",
   },
   {
@@ -133,7 +129,7 @@ Respuesta: El sistema de encomiendas fue una institucion colonial espanola que a
     label: "Elem. Máquinas — UTN",
     title: "Elementos de Máquinas — Evaluación Práctica",
     student_name: "Federico Wagner",
-    imageSrc: examImg03,
+    imageSrc: "/samples/examen-03.png",
     fileName: "examen-03.png",
   },
 ];
