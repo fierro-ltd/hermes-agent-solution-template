@@ -1,0 +1,14 @@
+# Caddy reverse proxy for HAST
+# Caddy auto-provisions HTTPS via Let's Encrypt.
+#
+# Install: apt install caddy (or download from https://caddyserver.com)
+# Deploy:  cp Caddyfile /etc/caddy/Caddyfile && systemctl restart caddy
+
+hermes-agent-solution-template.fierro.co.uk {
+    reverse_proxy localhost:8000
+}
+
+# LibreChat UI — HTTPS on port 8080 (same domain, Caddy auto-provisions cert)
+hermes-agent-solution-template.fierro.co.uk:8080 {
+    reverse_proxy localhost:3080
+}

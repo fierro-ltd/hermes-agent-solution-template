@@ -1,0 +1,19 @@
+version: 1.2.1
+cache: true
+
+endpoints:
+  custom:
+    - name: "Hermes Agent"
+      apiKey: "${HERMES_API_KEY}"
+      baseURL: "http://hermes-gateway:8642/v1"
+      models:
+        default: ["hermes-agent"]
+        fetch: false
+      titleConvo: true
+      titleModel: "hermes-agent"
+      modelDisplayLabel: "Hermes Agent"
+      dropParams:
+        - stop
+        - frequency_penalty
+        - presence_penalty
+        - top_p

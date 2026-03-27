@@ -1,0 +1,20 @@
+model:
+  provider: opencode-go
+  default: glm-5
+  base_url: https://opencode.ai/zen/go/v1
+
+vision:
+  provider: openrouter
+  model: google/gemini-3.1-flash-lite-preview
+
+agent:
+  max_turns: 10
+
+platform_toolsets:
+  api_server:
+    - web
+    - file
+    - vision
+
+stt:
+  enabled: false
