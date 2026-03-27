@@ -13,13 +13,15 @@ CREATE TABLE submissions (
     student_name TEXT NOT NULL,
     content TEXT,
     file_path TEXT,
+    content_type TEXT NOT NULL DEFAULT 'text',
     status TEXT NOT NULL DEFAULT 'pending',
     workflow_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT valid_status CHECK (status IN (
         'pending', 'evaluating', 'review', 'approved', 'rejected', 'expired'
-    ))
+    )),
+    CONSTRAINT valid_content_type CHECK (content_type IN ('text', 'image'))
 );
 
 CREATE INDEX submissions_status_idx ON submissions (status);
