@@ -7,6 +7,16 @@ interface AgentTraceProps {
   trace: AgentTraceType;
 }
 
+function stepLabel(step: TraceStep): string {
+  if (step.type === "message") return "Final assessment";
+  if (step.type === "tool_call") return `Tool: ${step.name}`;
+  if (step.type === "tool_result") return `Result: ${step.name}`;
+  // reasoning — use first line or first ~60 chars
+  const text = step.content || "";
+  const firstLine = text.split("\n")[0].trim();
+  return firstLine.length > 60 ? firstLine.slice(0, 60) + "..." : firstLine || "Reasoning";
+}
+
 function StepDot({ type }: { type: TraceStep["type"] }) {
   const colors: Record<string, string> = {
     reasoning: "bg-blue-500",
@@ -15,58 +25,47 @@ function StepDot({ type }: { type: TraceStep["type"] }) {
     message: "bg-green-500",
   };
   return (
-    <div
-      className={`absolute -left-[23px] top-1 size-3 rounded-full ${colors[type] ?? "bg-gray-400"}`}
-    />
+    <span className={`inline-block size-2.5 rounded-full shrink-0 ${colors[type] ?? "bg-gray-400"}`} />
   );
 }
 
-function ToolBadge() {
-  return (
-    <span className="inline-flex items-center rounded bg-purple-500/10 px-1.5 py-0.5 text-[11px] font-medium text-purple-400">
-      tool
-    </span>
-  );
-}
+function AccordionStep({ step }: { step: TraceStep }) {
+  const [open, setOpen] = useState(false);
+  const hasDetails =
+    (step.type === "reasoning" && step.content && step.content.length > 60) ||
+    (step.type === "tool_call" && step.args) ||
+    (step.type === "tool_result" && step.output);
 
-function TraceStepRow({ step }: { step: TraceStep }) {
   return (
-    <div className="relative mb-4 last:mb-0">
-      <StepDot type={step.type} />
-      <div className="flex items-baseline justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-sm">
-          {(step.type === "tool_call" || step.type === "tool_result") && (
-            <>
-              <ToolBadge />
-              <span className="font-medium">{step.name}</span>
-            </>
-          )}
-          {step.type === "message" && (
-            <span className="text-green-500 font-medium">Final assessment composed</span>
-          )}
-        </div>
-        <span className="shrink-0 text-xs text-muted-foreground">
+    <div className="border-b last:border-0">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+        onClick={() => hasDetails && setOpen((v) => !v)}
+      >
+        <StepDot type={step.type} />
+        <span className="text-sm font-medium flex-1 truncate">
+          {stepLabel(step)}
+        </span>
+        <span className="text-xs text-muted-foreground shrink-0">
           {step.timestamp.toFixed(1)}s
         </span>
-      </div>
-      {step.type === "reasoning" && step.content && (
-        <p className="mt-1 text-sm text-foreground">
-          {step.content.length > 150
-            ? step.content.slice(0, 150) + "..."
-            : step.content}
-        </p>
-      )}
-      {step.type === "tool_call" && step.args && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          {JSON.stringify(step.args).slice(0, 200)}
-        </p>
-      )}
-      {step.type === "tool_result" && step.output && (
-        <p className="mt-1 text-xs text-green-600">
-          {step.output.length > 100
-            ? step.output.slice(0, 100) + "..."
-            : step.output}
-        </p>
+        {hasDetails && (
+          open
+            ? <ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
+            : <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />
+        )}
+      </button>
+      {open && hasDetails && (
+        <div className="px-3 pb-3 pl-8 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+          {step.type === "reasoning" && step.content}
+          {step.type === "tool_call" && step.args && (
+            <code className="block bg-muted/50 rounded p-2 text-[11px]">
+              {JSON.stringify(step.args, null, 2).slice(0, 500)}
+            </code>
+          )}
+          {step.type === "tool_result" && step.output}
+        </div>
       )}
     </div>
   );
@@ -79,7 +78,7 @@ export function AgentTrace({ trace }: AgentTraceProps) {
 
   return (
     <Card>
-      <CardHeader className="pb-3 cursor-pointer" onClick={() => setIsExpanded(v => !v)}>
+      <CardHeader className="pb-3 cursor-pointer" onClick={() => setIsExpanded((v) => !v)}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {isExpanded ? (
@@ -108,10 +107,10 @@ export function AgentTrace({ trace }: AgentTraceProps) {
         </div>
       </CardHeader>
       {isExpanded && (
-        <CardContent>
-          <div className="border-l-2 border-border pl-5 ml-1">
+        <CardContent className="pt-0 px-0">
+          <div className="border-t">
             {trace.steps.map((step, i) => (
-              <TraceStepRow key={i} step={step} />
+              <AccordionStep key={i} step={step} />
             ))}
           </div>
         </CardContent>

@@ -48,8 +48,33 @@ export function StreamingPanel({ text, isStreaming, error }: StreamingPanelProps
           </div>
         )}
         {text && (
-          <div ref={scrollRef} className="max-h-64 overflow-y-auto rounded-md bg-muted/50 p-4 text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown>{text}</ReactMarkdown>
+          <div
+            ref={scrollRef}
+            className="max-h-64 overflow-y-auto rounded-md bg-muted/50 p-4 text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+          >
+            <ReactMarkdown
+              components={{
+                // Render code blocks as plain <pre> to prevent mermaid from
+                // trying to parse them (mermaid looks for language-* classes)
+                code({ children, className, ...props }) {
+                  const isBlock = className?.startsWith("language-");
+                  if (isBlock) {
+                    return (
+                      <pre className="bg-muted rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap">
+                        <code {...props}>{children}</code>
+                      </pre>
+                    );
+                  }
+                  return <code className="bg-muted px-1 rounded text-xs" {...props}>{children}</code>;
+                },
+                // Don't wrap block code in an extra <pre>
+                pre({ children }) {
+                  return <>{children}</>;
+                },
+              }}
+            >
+              {text}
+            </ReactMarkdown>
             {isStreaming && (
               <span className="inline-block w-0.5 h-4 bg-blue-500 animate-pulse ml-0.5 align-text-bottom" />
             )}
