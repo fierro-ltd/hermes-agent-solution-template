@@ -8,7 +8,7 @@ hermes-agent-solution-template.fierro.co.uk {
     reverse_proxy localhost:8000
 }
 
-# LibreChat UI — accessible on port 8080 (plain HTTP for demo)
-:8080 {
+# LibreChat UI — HTTPS on port 8080 (same domain, Caddy auto-provisions cert)
+hermes-agent-solution-template.fierro.co.uk:8080 {
     reverse_proxy localhost:3080
 }
