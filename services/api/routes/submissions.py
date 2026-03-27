@@ -31,6 +31,35 @@ GRADING_TASK_QUEUE = "grading-queue"
 IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/app/uploads")
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+MAX_IMAGE_BYTES = 1 * 1024 * 1024  # 1 MB — compress images larger than this
+
+
+def _compress_image(raw: bytes, mime: str) -> tuple[bytes, str]:
+    """Compress an image to fit within MAX_IMAGE_BYTES.
+
+    Converts PNG/WebP to JPEG and reduces quality progressively.
+    Returns (compressed_bytes, output_mime_type).
+    """
+    import io
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(raw))
+    if img.mode in ("RGBA", "P", "LA"):
+        img = img.convert("RGB")
+
+    # Always output as JPEG for compression
+    for quality in (85, 70, 50, 30):
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
+        result = buf.getvalue()
+        if len(result) <= MAX_IMAGE_BYTES:
+            return result, "image/jpeg"
+
+    # Last resort: resize to 50% and compress
+    img = img.resize((img.width // 2, img.height // 2), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=50, optimize=True)
+    return buf.getvalue(), "image/jpeg"
 
 
 def _safe_upload_path(file_name: str) -> str:
@@ -75,6 +104,9 @@ async def create_submission(
         mime = file.content_type or ""
         if mime in IMAGE_MIME_TYPES:
             content_type = "image"
+            # Compress large images to keep base64 payloads under Hermes limits
+            if len(raw) > MAX_IMAGE_BYTES:
+                raw, mime = _compress_image(raw, mime)
             ext = mimetypes.guess_extension(mime) or ".jpg"
             if ext == ".jpe":
                 ext = ".jpg"
