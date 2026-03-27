@@ -379,9 +379,42 @@ function SubmissionDetailPage() {
                   />
                 </div>
               )}
-              <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
-                {sub.content}
-              </div>
+              {(sub as any).content_type === "image" ? (
+                <div className="space-y-4">
+                  <div className="rounded-lg border overflow-hidden bg-muted/20">
+                    <img
+                      src={`/api/submissions/${id}/image`}
+                      alt={`${sub.title} — exam image`}
+                      className="w-full cursor-zoom-in"
+                      onClick={(e) => {
+                        const img = e.currentTarget;
+                        if (document.fullscreenElement) {
+                          document.exitFullscreen();
+                        } else {
+                          img.requestFullscreen();
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Click image to view fullscreen
+                  </p>
+                  {sub.content && (
+                    <div className="rounded-lg border p-4">
+                      <h3 className="text-sm font-medium mb-2 text-muted-foreground">
+                        Notes
+                      </h3>
+                      <p className="text-sm whitespace-pre-wrap">
+                        {sub.content}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+                  {sub.content}
+                </div>
+              )}
             </div>
           </ScrollArea>
         </div>

@@ -28,6 +28,8 @@ export interface Submission {
   title: string;
   student_name: string;
   content: string;
+  content_type: "text" | "image";
+  file_path: string | null;
   status: SubmissionStatus;
   workflow_id: string | null;
   agent_feedback: AgentFeedback | null;

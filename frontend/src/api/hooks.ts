@@ -150,13 +150,19 @@ export function useCreateSubmission() {
     mutationFn: async (data: {
       title: string;
       student_name: string;
-      content: string;
+      content?: string;
+      file?: File;
     }) => {
       const token = await getToken();
       const formData = new FormData();
       formData.append("title", data.title);
       formData.append("student_name", data.student_name);
-      formData.append("content", data.content);
+      if (data.content) {
+        formData.append("content", data.content);
+      }
+      if (data.file) {
+        formData.append("file", data.file);
+      }
       return fetchJSON<Submission>(
         "/api/submissions",
         { method: "POST", body: formData },
