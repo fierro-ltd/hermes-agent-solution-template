@@ -7,10 +7,17 @@ export function NavBar() {
   const navigate = useNavigate();
   const { data: session } = authClient.useSession();
 
+  // Build LibreChat URL on same hostname but port 8080
+  const chatUrl =
+    typeof window !== "undefined"
+      ? `${window.location.protocol}//${window.location.hostname}:8080`
+      : ":8080";
+
   const links = [
     { to: "/", label: "Home", external: false },
     { to: "/dashboard", label: "Dashboard", external: false },
     { to: "/docs", label: "API", external: true },
+    { to: chatUrl, label: "Chat", external: true },
     { to: "/settings", label: "Settings", external: false },
   ] as const;
 
