@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import mimetypes
 import os
 import uuid
+from pathlib import Path
 from typing import Any
 
 import json as _json
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form, status
-from starlette.responses import StreamingResponse, JSONResponse
+from starlette.responses import FileResponse, StreamingResponse, JSONResponse
 from temporalio.common import WorkflowIDReusePolicy
 
 from services.api import deps
@@ -26,6 +28,9 @@ router = APIRouter(prefix="/submissions", tags=["submissions"])
 
 GRADING_TASK_QUEUE = "grading-queue"
 
+IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/app/uploads")
+
 
 # ---------------------------------------------------------------------------
 # POST /api/submissions
@@ -39,42 +44,56 @@ async def create_submission(
     content: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
 ) -> SubmissionResponse:
-    """Upload a new submission (text or file), persist it, and kick off grading."""
+    """Upload a new submission (text, file, or image), persist it, and kick off grading."""
     if not content and not file:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide either 'content' (text) or 'file'.",
         )
 
-    # Read file content if provided
+    submission_id = uuid.uuid4()
     submission_content = content or ""
+    content_type = "text"
+    file_path = None
+
     if file:
         raw = await file.read()
-        submission_content = raw.decode("utf-8", errors="replace")
+        mime = file.content_type or ""
+        if mime in IMAGE_MIME_TYPES:
+            content_type = "image"
+            ext = mimetypes.guess_extension(mime) or ".jpg"
+            if ext == ".jpe":
+                ext = ".jpg"
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            file_path = f"{submission_id}{ext}"
+            full_path = os.path.join(UPLOAD_DIR, file_path)
+            with open(full_path, "wb") as f:
+                f.write(raw)
+            submission_content = content or ""
+        else:
+            submission_content = raw.decode("utf-8", errors="replace")
 
-    submission_id = uuid.uuid4()
     pool = await deps.get_pool()
 
-    # Insert submission row
     row = await pool.fetchrow(
         """
-        INSERT INTO submissions (id, title, student_name, content, status)
-        VALUES ($1, $2, $3, $4, 'pending')
-        RETURNING id, title, student_name, status, created_at, workflow_id
+        INSERT INTO submissions (id, title, student_name, content, file_path, content_type, status)
+        VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+        RETURNING id, title, student_name, status, content_type, created_at, workflow_id
         """,
         submission_id,
         title,
         student_name,
         submission_content,
+        file_path,
+        content_type,
     )
 
-    # Start the Temporal grading workflow
     temporal = await deps.get_temporal_client()
     workflow_id = f"grading-{submission_id}"
 
     from services.workers.schemas import GradingParams
 
-    # Fix #9: Idempotent workflow start — reject duplicate workflow IDs
     await temporal.start_workflow(
         "GradingWorkflow",
         GradingParams(submission_id=str(submission_id)),
@@ -83,7 +102,6 @@ async def create_submission(
         id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
     )
 
-    # Store workflow_id back on the submission
     await pool.execute(
         "UPDATE submissions SET workflow_id = $1, status = 'evaluating' WHERE id = $2",
         workflow_id,
@@ -95,6 +113,7 @@ async def create_submission(
         title=title,
         student_name=student_name,
         status="evaluating",
+        content_type=content_type,
         created_at=row["created_at"],
         workflow_id=workflow_id,
     )
@@ -116,7 +135,7 @@ async def list_submissions(
     total = await pool.fetchval("SELECT count(*) FROM submissions")
     rows = await pool.fetch(
         """
-        SELECT id, title, student_name, status, created_at, workflow_id
+        SELECT id, title, student_name, status, content_type, created_at, workflow_id
         FROM submissions
         ORDER BY created_at DESC
         OFFSET $1 LIMIT $2
@@ -143,7 +162,7 @@ async def get_submission(submission_id: uuid.UUID) -> dict[str, Any]:
 
     row = await pool.fetchrow(
         """
-        SELECT id, title, student_name, content, status, created_at, workflow_id
+        SELECT id, title, student_name, content, content_type, file_path, status, created_at, workflow_id
         FROM submissions WHERE id = $1
         """,
         submission_id,
@@ -307,6 +326,31 @@ async def get_submission_trace(submission_id: uuid.UUID):
 
 
 # ---------------------------------------------------------------------------
+# GET /api/submissions/{id}/image
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{submission_id}/image")
+async def get_submission_image(submission_id: uuid.UUID):
+    """Serve the image file for an image submission."""
+    pool = await deps.get_pool()
+    row = await pool.fetchrow(
+        "SELECT file_path, content_type FROM submissions WHERE id = $1",
+        submission_id,
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if row["content_type"] != "image" or not row["file_path"]:
+        raise HTTPException(status_code=404, detail="No image for this submission")
+
+    full_path = os.path.join(UPLOAD_DIR, row["file_path"])
+    if not os.path.exists(full_path):
+        raise HTTPException(status_code=404, detail="Image file not found")
+
+    return FileResponse(full_path)
+
+
+# ---------------------------------------------------------------------------
 # GET /api/submissions/{id}/stream
 # ---------------------------------------------------------------------------
 
@@ -323,7 +367,7 @@ async def stream_submission_evaluation(submission_id: uuid.UUID):
     pool = await deps.get_pool()
 
     sub = await pool.fetchrow(
-        "SELECT id, content, status FROM submissions WHERE id = $1",
+        "SELECT id, content, content_type, file_path, status FROM submissions WHERE id = $1",
         submission_id,
     )
     if not sub:
@@ -352,9 +396,26 @@ async def stream_submission_evaluation(submission_id: uuid.UUID):
         f"RUBRIC:\n{rubric_text}\n"
     )
 
+    # Build user message — multipart for images, plain text otherwise
+    if sub["content_type"] == "image" and sub["file_path"]:
+        import base64
+        full_path = os.path.join(UPLOAD_DIR, sub["file_path"])
+        with open(full_path, "rb") as f:
+            img_data = base64.b64encode(f.read()).decode("ascii")
+        ext = os.path.splitext(sub["file_path"])[1].lower()
+        mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+        mime = mime_map.get(ext, "image/jpeg")
+        user_content: str | list = [
+            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_data}"}},
+        ]
+        if sub["content"]:
+            user_content.append({"type": "text", "text": sub["content"]})
+    else:
+        user_content = sub["content"]
+
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": sub["content"]},
+        {"role": "user", "content": user_content},
     ]
 
     hermes_url = os.environ.get("HERMES_API_URL", "http://hermes-gateway:8642")

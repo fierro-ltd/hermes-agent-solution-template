@@ -34,6 +34,7 @@ class SubmissionResponse(BaseModel):
     title: str
     student_name: str
     status: str
+    content_type: str = "text"
     created_at: datetime
     workflow_id: str | None = None
 
