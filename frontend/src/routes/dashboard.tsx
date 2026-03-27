@@ -224,12 +224,14 @@ function DashboardPage() {
       toast.error("Please select an image file (JPEG, PNG, or WebP)");
       return;
     }
+    if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
     setImageFile(file);
     setImageName(file.name);
     setImagePreview(URL.createObjectURL(file));
   }
 
   function removeImage() {
+    if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
     setImageFile(null);
     setImagePreview(null);
     setImageName("");

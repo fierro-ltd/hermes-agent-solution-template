@@ -30,6 +30,15 @@ GRADING_TASK_QUEUE = "grading-queue"
 
 IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/app/uploads")
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+
+
+def _safe_upload_path(file_name: str) -> str:
+    """Resolve an upload path and verify it stays within UPLOAD_DIR."""
+    full_path = os.path.join(UPLOAD_DIR, file_name)
+    if not os.path.realpath(full_path).startswith(os.path.realpath(UPLOAD_DIR)):
+        raise HTTPException(status_code=400, detail="Invalid file path")
+    return full_path
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +67,11 @@ async def create_submission(
 
     if file:
         raw = await file.read()
+        if len(raw) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+            )
         mime = file.content_type or ""
         if mime in IMAGE_MIME_TYPES:
             content_type = "image"
@@ -66,7 +80,7 @@ async def create_submission(
                 ext = ".jpg"
             os.makedirs(UPLOAD_DIR, exist_ok=True)
             file_path = f"{submission_id}{ext}"
-            full_path = os.path.join(UPLOAD_DIR, file_path)
+            full_path = _safe_upload_path(file_path)
             with open(full_path, "wb") as f:
                 f.write(raw)
             submission_content = content or ""
@@ -288,11 +302,20 @@ async def get_submission_progress(submission_id: uuid.UUID):
 async def delete_submission(submission_id: uuid.UUID):
     """Delete a submission and its associated reviews."""
     pool = await deps.get_pool()
+    # Fetch file path before deleting to clean up uploaded images
+    sub_row = await pool.fetchrow(
+        "SELECT file_path, content_type FROM submissions WHERE id = $1", submission_id
+    )
     # Delete reviews first (foreign key constraint)
     await pool.execute("DELETE FROM reviews WHERE submission_id = $1", submission_id)
     result = await pool.execute("DELETE FROM submissions WHERE id = $1", submission_id)
     if result == "DELETE 0":
         raise HTTPException(status_code=404, detail="Submission not found")
+    # Clean up uploaded image file
+    if sub_row and sub_row["content_type"] == "image" and sub_row["file_path"]:
+        full_path = _safe_upload_path(sub_row["file_path"])
+        if os.path.exists(full_path):
+            os.remove(full_path)
     return {"deleted": True}
 
 
@@ -343,7 +366,7 @@ async def get_submission_image(submission_id: uuid.UUID):
     if row["content_type"] != "image" or not row["file_path"]:
         raise HTTPException(status_code=404, detail="No image for this submission")
 
-    full_path = os.path.join(UPLOAD_DIR, row["file_path"])
+    full_path = _safe_upload_path(row["file_path"])
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="Image file not found")
 
@@ -399,7 +422,7 @@ async def stream_submission_evaluation(submission_id: uuid.UUID):
     # Build user message — multipart for images, plain text otherwise
     if sub["content_type"] == "image" and sub["file_path"]:
         import base64
-        full_path = os.path.join(UPLOAD_DIR, sub["file_path"])
+        full_path = _safe_upload_path(sub["file_path"])
         with open(full_path, "rb") as f:
             img_data = base64.b64encode(f.read()).decode("ascii")
         ext = os.path.splitext(sub["file_path"])[1].lower()

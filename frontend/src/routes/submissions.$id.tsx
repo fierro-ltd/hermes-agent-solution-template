@@ -379,7 +379,7 @@ function SubmissionDetailPage() {
                   />
                 </div>
               )}
-              {(sub as any).content_type === "image" ? (
+              {sub.content_type === "image" ? (
                 <div className="space-y-4">
                   <div className="rounded-lg border overflow-hidden bg-muted/20">
                     <img
