@@ -150,6 +150,37 @@ services:
       hermes-gateway:
         condition: service_healthy
 
+  mongodb:
+    image: mongo:8.0
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  librechat:
+    image: ghcr.io/danny-avila/librechat:latest
+    ports:
+      - "127.0.0.1:3080:3080"
+    env_file:
+      - ../../services/librechat/.env
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/LibreChat
+      - HERMES_API_KEY=${HERMES_API_KEY:-}
+    volumes:
+      - ../../services/librechat/librechat.yaml:/app/librechat.yaml:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      hermes-gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   upload_data:
+  mongodb_data:

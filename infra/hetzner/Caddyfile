@@ -8,3 +8,7 @@
 {$SITE_DOMAIN:localhost} {
     reverse_proxy localhost:8000
 }
+
+:8080 {
+    reverse_proxy localhost:3080
+}
