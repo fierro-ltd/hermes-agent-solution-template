@@ -1,0 +1,70 @@
+"""Data models for the grading workflow."""
+
+from __future__ import annotations
+
+import enum
+from dataclasses import dataclass, field
+
+
+class SubmissionStatus(str, enum.Enum):
+    PENDING = "pending"
+    EVALUATING = "evaluating"
+    REVIEW = "review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+@dataclass
+class AgentFeedback:
+    """Structured feedback returned by the AI grading agent."""
+
+    suggested_score: float
+    strengths: list[str] = field(default_factory=list)
+    weaknesses: list[str] = field(default_factory=list)
+    reasoning: str = ""
+
+
+# AgentTrace is stored as a plain dict in reviews.agent_trace JSONB.
+# Schema:
+# {
+#   "steps": [
+#     {"type": "reasoning"|"tool_call"|"tool_result"|"message",
+#      "content": str, "name": str, "call_id": str,
+#      "args": dict, "output": str, "duration_ms": int, "timestamp": float}
+#   ],
+#   "usage": {"input_tokens": int, "output_tokens": int, "total_tokens": int},
+#   "session_id": str, "duration_seconds": float,
+#   "tools_used": [str], "model": str
+# }
+
+
+@dataclass
+class GradingParams:
+    """Input parameters for the GradingWorkflow."""
+
+    submission_id: str
+    student_name: str = ""  # Kept for backward compatibility with in-flight workflows
+    rubric: str = ""        # Kept for backward compatibility
+    content: str = ""       # Kept for backward compatibility
+
+
+@dataclass
+class ReviewDecision:
+    """Signal payload sent by the professor after reviewing agent feedback."""
+
+    review_id: str
+    decision: str  # "approved" or "re-evaluate"
+    final_score: float | None = None
+    professor_notes: str = ""
+
+
+@dataclass
+class GradingResult:
+    """Final output of the GradingWorkflow."""
+
+    submission_id: str
+    status: str
+    agent_feedback: AgentFeedback | None = None
+    final_score: float | None = None
+    professor_notes: str = ""
+    review_cycles: int = 0

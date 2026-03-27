@@ -1,0 +1,40 @@
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5434:5432"
+
+  # Skip building hermes — use the existing gateway on the host
+  hermes-gateway:
+    image: alpine:latest
+    command: ["sleep", "infinity"]
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 5s
+    ports: []
+
+  api:
+    environment:
+      - DATABASE_URL=postgresql://app_user:app_password@postgres:5432/app_db
+      - HERMES_API_URL=http://host.docker.internal:8642
+      - HERMES_API_KEY=hermes-api-fierroltd-2026
+      - AUTH_BYPASS=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  worker:
+    environment:
+      - DATABASE_URL=postgresql://app_user:app_password@postgres:5432/app_db
+      - HERMES_API_URL=http://host.docker.internal:8642
+      - HERMES_API_KEY=hermes-api-fierroltd-2026
+      - TASK_QUEUE=grading-queue
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      temporal:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  auth:
+    environment:
+      - DATABASE_URL=postgresql://app_user:app_password@postgres:5432/app_db
