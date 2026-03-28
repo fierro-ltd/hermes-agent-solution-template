@@ -31,7 +31,7 @@ GRADING_TASK_QUEUE = "grading-queue"
 IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/app/uploads")
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
-MAX_IMAGE_BYTES = 1 * 1024 * 1024  # 1 MB — compress images larger than this
+MAX_IMAGE_BYTES = 700 * 1024  # 700 KB — compress images larger than this (base64 adds ~33%)
 
 
 def _compress_image(raw: bytes, mime: str) -> tuple[bytes, str]:
