@@ -13,7 +13,7 @@ hermes-agent-solution-template.fierro.co.uk:8080 {
     reverse_proxy localhost:3080
 }
 
-# Temporal UI — HTTPS on port 8233
-hermes-agent-solution-template.fierro.co.uk:8233 {
+# Temporal UI — HTTPS on port 9233 (proxied to internal 8233)
+hermes-agent-solution-template.fierro.co.uk:9233 {
     reverse_proxy localhost:8233
 }
