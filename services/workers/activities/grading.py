@@ -458,8 +458,19 @@ async def evaluate_submission(
                 raise ApplicationError("Rate limited (429)", non_retryable=False, next_retry_delay=delay) from exc
             raise
 
-        raw_content = response.json()["choices"][0]["message"]["content"]
-        trace_data = None
+        resp_json = response.json()
+        raw_content = resp_json["choices"][0]["message"]["content"]
+        # Build a basic trace from the chat/completions response
+        usage = resp_json.get("usage", {})
+        elapsed = round(_time.time() - start_time, 1)
+        trace_data = {
+            "steps": [{"type": "message", "content": raw_content[:2000], "timestamp": elapsed}],
+            "usage": usage,
+            "session_id": resp_json.get("id", ""),
+            "duration_seconds": elapsed,
+            "tools_used": [],
+            "model": model,
+        }
 
     if not raw_content:
         raise ApplicationError("Empty response from Hermes", non_retryable=True)
