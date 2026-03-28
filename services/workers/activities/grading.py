@@ -350,7 +350,9 @@ async def evaluate_submission(
     if content_type == "image" and file_path:
         import base64
         upload_dir = os.environ.get("UPLOAD_DIR", "/app/uploads")
-        full_path = os.path.join(upload_dir, file_path)
+        full_path = os.path.realpath(os.path.join(upload_dir, file_path))
+        if not full_path.startswith(os.path.realpath(upload_dir)):
+            raise ApplicationError("Invalid file path", non_retryable=True)
         with open(full_path, "rb") as f:
             img_data = base64.b64encode(f.read()).decode("ascii")
         ext = os.path.splitext(file_path)[1].lower()

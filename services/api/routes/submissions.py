@@ -104,9 +104,20 @@ async def create_submission(
         mime = file.content_type or ""
         if mime in IMAGE_MIME_TYPES:
             content_type = "image"
-            # Compress large images to keep base64 payloads under Hermes limits
-            if len(raw) > MAX_IMAGE_BYTES:
-                raw, mime = _compress_image(raw, mime)
+            # Validate that the file is actually a valid image
+            try:
+                if len(raw) > MAX_IMAGE_BYTES:
+                    raw, mime = _compress_image(raw, mime)
+                else:
+                    # Validate even small images by opening with Pillow
+                    import io
+                    from PIL import Image
+                    Image.open(io.BytesIO(raw)).verify()
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Uploaded file is not a valid image.",
+                )
             ext = mimetypes.guess_extension(mime) or ".jpg"
             if ext == ".jpe":
                 ext = ".jpg"
@@ -402,7 +413,9 @@ async def get_submission_image(submission_id: uuid.UUID):
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="Image file not found")
 
-    return FileResponse(full_path)
+    ext = os.path.splitext(row["file_path"])[1].lower()
+    mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+    return FileResponse(full_path, media_type=mime_map.get(ext, "image/jpeg"))
 
 
 # ---------------------------------------------------------------------------

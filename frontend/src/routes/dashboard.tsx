@@ -209,6 +209,10 @@ function DashboardPage() {
           const ext = sample.fileName.split(".").pop() ?? "jpeg";
           const mime = ext === "png" ? "image/png" : "image/jpeg";
           setImageFile(new File([blob], sample.fileName, { type: mime }));
+        })
+        .catch(() => {
+          removeImage();
+          toast.error("Failed to load sample image");
         });
     }
   }
