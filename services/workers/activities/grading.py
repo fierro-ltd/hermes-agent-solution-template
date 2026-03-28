@@ -314,7 +314,7 @@ async def evaluate_submission(
 
     # Fetch submission content from DB (Fix #4: pass only submission_id)
     row = await pool.fetchrow(
-        "SELECT content FROM submissions WHERE id = $1",
+        "SELECT content, content_type, file_path FROM submissions WHERE id = $1",
         submission_id,
     )
     if not row:
@@ -323,6 +323,8 @@ async def evaluate_submission(
             non_retryable=True,
         )
     content = row["content"]
+    content_type = row.get("content_type", "text")
+    file_path = row.get("file_path")
 
     # Fetch rubric from app_settings
     rubric = await pool.fetchval(
@@ -335,13 +337,34 @@ async def evaluate_submission(
     api_key = provider_settings["api_key"]
 
     activity.logger.info(
-        "Using model=%s provider=%s for submission %s",
+        "Using model=%s provider=%s for submission %s (content_type=%s)",
         model,
         provider_settings["provider"] or "(default)",
         submission_id,
+        content_type,
     )
 
     system_prompt = _build_system_prompt(rubric, professor_feedback)
+
+    # Build user message — multipart for images, plain text otherwise
+    if content_type == "image" and file_path:
+        import base64
+        upload_dir = os.environ.get("UPLOAD_DIR", "/app/uploads")
+        full_path = os.path.realpath(os.path.join(upload_dir, file_path))
+        if not full_path.startswith(os.path.realpath(upload_dir)):
+            raise ApplicationError("Invalid file path", non_retryable=True)
+        with open(full_path, "rb") as f:
+            img_data = base64.b64encode(f.read()).decode("ascii")
+        ext = os.path.splitext(file_path)[1].lower()
+        mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+        mime = mime_map.get(ext, "image/jpeg")
+        user_content: str | list = [
+            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_data}"}},
+        ]
+        if content:
+            user_content.append({"type": "text", "text": content})
+    else:
+        user_content = content
 
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if api_key:
@@ -351,7 +374,7 @@ async def evaluate_submission(
         "model": model,
         "messages": [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": content},
+            {"role": "user", "content": user_content},
         ],
         "temperature": 0.3,
     }
@@ -435,8 +458,19 @@ async def evaluate_submission(
                 raise ApplicationError("Rate limited (429)", non_retryable=False, next_retry_delay=delay) from exc
             raise
 
-        raw_content = response.json()["choices"][0]["message"]["content"]
-        trace_data = None
+        resp_json = response.json()
+        raw_content = resp_json["choices"][0]["message"]["content"]
+        # Build a basic trace from the chat/completions response
+        usage = resp_json.get("usage", {})
+        elapsed = round(_time.time() - start_time, 1)
+        trace_data = {
+            "steps": [{"type": "message", "content": raw_content[:2000], "timestamp": elapsed}],
+            "usage": usage,
+            "session_id": resp_json.get("id", ""),
+            "duration_seconds": elapsed,
+            "tools_used": [],
+            "model": model,
+        }
 
     if not raw_content:
         raise ApplicationError("Empty response from Hermes", non_retryable=True)

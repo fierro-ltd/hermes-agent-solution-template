@@ -30,9 +30,11 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  FileText,
+  Camera,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
-
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
 });
@@ -50,8 +52,13 @@ function formatDateTime(iso: string): string {
 // Sample submissions for quick testing
 // ---------------------------------------------------------------------------
 
-const SAMPLE_SUBMISSIONS = [
+type SampleSubmission =
+  | { type: "text"; label: string; title: string; student_name: string; content: string }
+  | { type: "image"; label: string; title: string; student_name: string; imageSrc: string; fileName: string };
+
+const SAMPLE_SUBMISSIONS: SampleSubmission[] = [
   {
+    type: "text",
     label: "Math — Algebra Exam",
     title: "Algebra II — Midterm Exam",
     student_name: "Carlos Mendez",
@@ -70,6 +77,7 @@ Question 3: A ball is thrown upward with initial velocity 20 m/s. Its height is 
 Answer: Maximum height occurs at t = -b/2a = -20/(2×-5) = 2 seconds. h(2) = -5(4) + 20(2) = -20 + 40 = 20 meters. The ball reaches 20m at 2 seconds.`,
   },
   {
+    type: "text",
     label: "English — Grammar & Composition",
     title: "English Composition — Grammar Assessment",
     student_name: "Sarah Johnson",
@@ -88,6 +96,7 @@ Question 3: Explain the difference between active and passive voice. Provide an 
 Answer: Active voice: the subject performs the action ("The cat chased the mouse"). Passive voice: the subject receives the action ("The mouse was chased by the cat"). Active voice is generally preferred in writing because it is more direct and concise, though passive voice is useful when the actor is unknown or less important than the action.`,
   },
   {
+    type: "text",
     label: "Spanish History — Colonial Period",
     title: "Historia de Espana — Periodo Colonial",
     student_name: "Ana Torres",
@@ -98,6 +107,30 @@ Respuesta: La llegada de Colon tuvo consecuencias profundas para ambos lados. Pa
 Pregunta 2: Que fue el sistema de encomiendas y como funcionaba?
 
 Respuesta: El sistema de encomiendas fue una institucion colonial espanola que asignaba grupos de indigenas a colonos espanoles (encomenderos). Los encomenderos recibian el derecho al tributo y al trabajo de los indigenas a cambio de su supuesta proteccion y evangelizacion cristiana. En la practica, funcionaba como un sistema de trabajo forzado que causo abusos generalizados.`,
+  },
+  {
+    type: "image",
+    label: "Mec. Fluidos — UTN",
+    title: "Mecánica de los Fluidos — 1° Parcial",
+    student_name: "Matías Magallanos",
+    imageSrc: "/samples/examen-01.jpeg",
+    fileName: "examen-01.jpeg",
+  },
+  {
+    type: "image",
+    label: "Ing. Mecánica B — UTN",
+    title: "Ingeniería Mecánica B — Examen",
+    student_name: "Nasello Cuonatto",
+    imageSrc: "/samples/examen-02.png",
+    fileName: "examen-02.png",
+  },
+  {
+    type: "image",
+    label: "Elem. Máquinas — UTN",
+    title: "Elementos de Máquinas — Evaluación Práctica",
+    student_name: "Federico Wagner",
+    imageSrc: "/samples/examen-03.png",
+    fileName: "examen-03.png",
   },
 ];
 
@@ -119,6 +152,9 @@ function DashboardPage() {
   const [content, setContent] = useState("");
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageName, setImageName] = useState<string>("");
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -158,17 +194,59 @@ function DashboardPage() {
     const sample = SAMPLE_SUBMISSIONS[index];
     setTitle(sample.title);
     setStudentName(sample.student_name);
-    setContent(sample.content);
+    if (sample.type === "text") {
+      setContent(sample.content);
+      setImageFile(null);
+      setImagePreview(null);
+      setImageName("");
+    } else {
+      setContent("");
+      setImagePreview(sample.imageSrc);
+      setImageName(sample.fileName);
+      fetch(sample.imageSrc)
+        .then((r) => r.blob())
+        .then((blob) => {
+          const ext = sample.fileName.split(".").pop() ?? "jpeg";
+          const mime = ext === "png" ? "image/png" : "image/jpeg";
+          setImageFile(new File([blob], sample.fileName, { type: mime }));
+        })
+        .catch(() => {
+          removeImage();
+          toast.error("Failed to load sample image");
+        });
+    }
+  }
+
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file (JPEG, PNG, or WebP)");
+      return;
+    }
+    if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+    setImageFile(file);
+    setImageName(file.name);
+    setImagePreview(URL.createObjectURL(file));
+  }
+
+  function removeImage() {
+    if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+    setImageFile(null);
+    setImagePreview(null);
+    setImageName("");
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim() || !studentName.trim() || !content.trim()) return;
+    if (!title.trim() || !studentName.trim()) return;
+    if (!content.trim() && !imageFile) return;
     createSubmission.mutate(
       {
         title: title.trim(),
         student_name: studentName.trim(),
-        content: content.trim(),
+        content: content.trim() || undefined,
+        file: imageFile || undefined,
       },
       {
         onSuccess: () => {
@@ -176,6 +254,7 @@ function DashboardPage() {
           setTitle("");
           setStudentName("");
           setContent("");
+          removeImage();
           setShowForm(false);
         },
         onError: (err) => {
@@ -323,8 +402,13 @@ function DashboardPage() {
                     key={i}
                     type="button"
                     onClick={() => loadSample(i)}
-                    className="text-xs px-3 py-1.5 rounded-full border hover:bg-muted transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border hover:bg-muted transition-colors"
                   >
+                    {sample.type === "text" ? (
+                      <FileText className="size-3" />
+                    ) : (
+                      <Camera className="size-3" />
+                    )}
                     {sample.label}
                   </button>
                 ))}
@@ -356,20 +440,70 @@ function DashboardPage() {
                     />
                   </div>
                 </div>
+                {/* Smart Content Area */}
                 <div className="space-y-2">
-                  <label htmlFor="content" className="text-sm font-medium">
+                  <label className="text-sm font-medium">
                     Submission Content
                   </label>
-                  <Textarea
-                    id="content"
-                    placeholder="Paste submission text here..."
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    className="min-h-32"
-                    required
-                  />
+                  {imagePreview ? (
+                    <div className="rounded-lg border overflow-hidden">
+                      <div className="relative bg-muted/30 p-4 flex flex-col items-center gap-2">
+                        <img
+                          src={imagePreview}
+                          alt="Exam preview"
+                          className="max-h-48 rounded object-contain"
+                        />
+                        <div className="text-xs text-muted-foreground">
+                          {imageName}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={removeImage}
+                          className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded hover:bg-red-600 transition-colors"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                      <div className="p-3 border-t">
+                        <Textarea
+                          placeholder="Add notes for the grader (optional)..."
+                          value={content}
+                          onChange={(e) => setContent(e.target.value)}
+                          className="min-h-16 text-sm"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Textarea
+                        id="content"
+                        placeholder="Paste submission text here..."
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        className="min-h-32"
+                      />
+                      <div className="flex items-center gap-2">
+                        <label className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border cursor-pointer hover:bg-muted transition-colors">
+                          <Upload className="size-3" />
+                          Attach image
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                            onChange={handleImageUpload}
+                          />
+                        </label>
+                        <span className="text-xs text-muted-foreground">
+                          JPEG, PNG, or WebP
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <Button type="submit" disabled={createSubmission.isPending}>
+                <Button
+                  type="submit"
+                  disabled={createSubmission.isPending || (!content.trim() && !imageFile)}
+                >
                   {createSubmission.isPending ? "Submitting..." : "Submit"}
                 </Button>
               </form>
