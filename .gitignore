@@ -46,6 +46,10 @@ docker-compose.override.yml
 # Uploads
 uploads/
 
+# WebReel (demo recordings)
+webreel.config.json
+videos/
+
 # OS
 Thumbs.db
 .DS_Store

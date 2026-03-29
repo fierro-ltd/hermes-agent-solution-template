@@ -1,0 +1,121 @@
+{
+  "$schema": "https://webreel.dev/schema/v1.json",
+  "baseUrl": "https://hermes-agent-solution-template.fierro.co.uk",
+  "outDir": "videos/",
+  "viewport": { "width": 1920, "height": 1080 },
+  "defaultDelay": 600,
+  "videos": {
+    "hast-demo": {
+      "url": "/",
+      "steps": [
+        // ---------------------------------------------------------------
+        // ACT 1: Home Page Tour — architecture, capabilities, tech stack
+        // ---------------------------------------------------------------
+        { "action": "pause", "ms": 1500 },
+        { "action": "scroll", "y": 400 },
+        { "action": "pause", "ms": 1200 },
+        { "action": "scroll", "y": 400 },
+        { "action": "pause", "ms": 1200 },
+        { "action": "scroll", "y": 500, "delay": 800 },
+        { "action": "pause", "ms": 1500 },
+        { "action": "scroll", "y": 500, "delay": 800 },
+        { "action": "pause", "ms": 2000 },
+        { "action": "scroll", "y": 500, "delay": 800 },
+        { "action": "pause", "ms": 1500 },
+
+        // ---------------------------------------------------------------
+        // ACT 2: Settings — rubric and LLM provider config
+        // ---------------------------------------------------------------
+        { "action": "click", "text": "Settings" },
+        { "action": "pause", "ms": 1500 },
+        { "action": "scroll", "y": 300 },
+        { "action": "pause", "ms": 1200 },
+        { "action": "scroll", "y": 400 },
+        { "action": "pause", "ms": 1500 },
+
+        // ---------------------------------------------------------------
+        // ACT 3: Hermes Chat — quick peek at LibreChat
+        // ---------------------------------------------------------------
+        // NOTE: "Chat" is an external link (port 8080). webreel can
+        // navigate to it directly instead of clicking the external link.
+        { "action": "navigate", "url": "https://hermes-agent-solution-template.fierro.co.uk:8080" },
+        { "action": "pause", "ms": 3000 },
+
+        // ---------------------------------------------------------------
+        // ACT 4: Text Submission Demo — Math Algebra Exam
+        // ---------------------------------------------------------------
+        // Go to Dashboard
+        { "action": "navigate", "url": "/dashboard" },
+        { "action": "pause", "ms": 1000 },
+
+        // Open upload form
+        { "action": "click", "text": "Upload Submission" },
+        { "action": "pause", "ms": 800 },
+
+        // Load the Math sample
+        { "action": "click", "text": "Math — Algebra Exam" },
+        { "action": "pause", "ms": 1200 },
+
+        // Scroll to see the content
+        { "action": "scroll", "y": 200 },
+        { "action": "pause", "ms": 800 },
+
+        // Submit
+        { "action": "scroll", "y": -200 },
+        { "action": "click", "text": "Submit" },
+        { "action": "pause", "ms": 2000 },
+
+        // Click into the new submission (first row in table)
+        { "action": "click", "text": "Algebra II" },
+        { "action": "pause", "ms": 2000 },
+
+        // Show the evaluating state briefly, then jump to completed result
+        // REPLACE this ID with a completed text submission ID:
+        { "action": "navigate", "url": "/submissions/68657af4-fc89-4461-a66c-2de2b28be25a" },
+        { "action": "pause", "ms": 2000 },
+
+        // Scroll through the feedback
+        { "action": "scroll", "y": 300, "selector": ".w-2\\/5" },
+        { "action": "pause", "ms": 1500 },
+        { "action": "scroll", "y": 300, "selector": ".w-2\\/5" },
+        { "action": "pause", "ms": 1500 },
+
+        // ---------------------------------------------------------------
+        // ACT 5: Image Submission Demo — Scanned UTN Exam
+        // ---------------------------------------------------------------
+        // Back to dashboard
+        { "action": "click", "text": "Dashboard" },
+        { "action": "pause", "ms": 1000 },
+
+        // Open upload form
+        { "action": "click", "text": "Upload Submission" },
+        { "action": "pause", "ms": 800 },
+
+        // Load the image sample
+        { "action": "click", "text": "Mec. Fluidos" },
+        { "action": "pause", "ms": 1500 },
+
+        // Submit
+        { "action": "click", "text": "Submit" },
+        { "action": "pause", "ms": 2000 },
+
+        // Click into the new submission
+        { "action": "click", "text": "Mecánica de los Fluidos" },
+        { "action": "pause", "ms": 2000 },
+
+        // Show evaluating state, then jump to completed image result
+        // REPLACE this ID with a completed image submission ID:
+        { "action": "navigate", "url": "/submissions/a0233cf3-8730-43f1-ad05-e93d45013d06" },
+        { "action": "pause", "ms": 2000 },
+
+        // Scroll through image and feedback
+        { "action": "scroll", "y": 300, "selector": ".w-3\\/5" },
+        { "action": "pause", "ms": 1500 },
+        { "action": "scroll", "y": 300, "selector": ".w-2\\/5" },
+        { "action": "pause", "ms": 1500 },
+        { "action": "scroll", "y": 300, "selector": ".w-2\\/5" },
+        { "action": "pause", "ms": 2000 }
+      ]
+    }
+  }
+}
