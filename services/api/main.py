@@ -116,9 +116,6 @@ async def proxy_auth(request: Request, path: str) -> Response:
 # Health endpoint — no auth required
 app.include_router(health.router)
 
-# Settings runtime endpoint — no auth required (like /health)
-app.include_router(settings.public_router, prefix="/api")
-
 # All /api routes require authentication
 _auth_deps = [Depends(verify_auth)]
 app.include_router(submissions.router, prefix="/api", dependencies=_auth_deps)

@@ -17,9 +17,6 @@ from services.api.schemas import (
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
-# Separate router for public (no-auth) settings endpoints
-public_router = APIRouter(prefix="/settings", tags=["settings"])
-
 # Provider-related setting keys
 _PROVIDER_KEY = "hermes_provider"
 _MODEL_KEY = "hermes_model"
@@ -62,19 +59,19 @@ async def _upsert_setting(pool, key: str, value: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# GET /api/settings/runtime  (public — no auth required)
+# GET /api/settings/runtime
 # ---------------------------------------------------------------------------
 
 
-@public_router.get("/runtime")
+@router.get("/runtime")
 async def get_runtime_config() -> dict:
     """Return the actual runtime configuration from env vars and Hermes config."""
     return {
-        "hermes_api_url": os.environ.get("HERMES_API_URL", ""),
+        "hermes_api_url": "connected" if os.environ.get("HERMES_API_URL") else "",
         "hermes_api_key_set": bool(os.environ.get("HERMES_API_KEY", "")),
         "opencode_go_key_set": bool(os.environ.get("LLM_API_KEY", "")),
         "openrouter_key_set": bool(os.environ.get("OPENROUTER_API_KEY", "")),
-        "temporal_address": os.environ.get("TEMPORAL_ADDRESS", ""),
+        "temporal_address": "connected" if os.environ.get("TEMPORAL_ADDRESS") else "",
     }
 
 
