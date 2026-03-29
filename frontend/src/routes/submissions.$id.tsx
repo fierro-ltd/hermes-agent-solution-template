@@ -202,9 +202,14 @@ function EvaluatingProgressCard({ submissionId }: { submissionId: string }) {
 
 function TemporalLink({ submissionId }: { submissionId: string }) {
   const { data: progress } = useSubmissionProgress(submissionId);
-  const url = progress?.temporal_ui_url;
+  const workflowId = progress?.workflow_id;
+  const port = progress?.temporal_ui_port ?? "8233";
 
-  if (!url) return null;
+  if (!workflowId) return null;
+
+  // Build URL relative to current browser origin so it works in both
+  // local dev (localhost:8233) and production (same-host:9233 via Caddy)
+  const url = `${window.location.protocol}//${window.location.hostname}:${port}/namespaces/default/workflows/${workflowId}`;
 
   return (
     <a

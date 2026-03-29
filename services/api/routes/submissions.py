@@ -22,7 +22,7 @@ from services.api.schemas import (
     SubmissionResponse,
 )
 
-TEMPORAL_UI_URL = os.environ.get("TEMPORAL_UI_URL", "http://localhost:8233")
+TEMPORAL_UI_PORT = os.environ.get("TEMPORAL_UI_PORT", "8233")
 
 router = APIRouter(prefix="/submissions", tags=["submissions"])
 
@@ -312,26 +312,20 @@ async def get_submission_progress(submission_id: uuid.UUID):
         except Exception:
             pass
 
-        # Build Temporal UI deep link
-        temporal_ui_url = (
-            f"{TEMPORAL_UI_URL}/namespaces/default/workflows/{row['workflow_id']}"
-        )
-
         return {
             "status": row["status"],
             "workflow_status": workflow_status,
             "activities": activities,
-            "temporal_ui_url": temporal_ui_url,
+            "temporal_ui_port": TEMPORAL_UI_PORT,
+            "workflow_id": row["workflow_id"],
         }
     except Exception as e:
-        temporal_ui_url = (
-            f"{TEMPORAL_UI_URL}/namespaces/default/workflows/{row['workflow_id']}"
-        )
         return {
             "status": row["status"],
             "workflow_status": "unknown",
             "activities": [],
-            "temporal_ui_url": temporal_ui_url,
+            "temporal_ui_port": TEMPORAL_UI_PORT,
+            "workflow_id": row["workflow_id"],
             "error": str(e),
         }
 

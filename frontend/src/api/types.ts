@@ -100,7 +100,8 @@ export interface WorkflowProgress {
   status: string;
   workflow_status?: string;
   activities: WorkflowActivity[];
-  temporal_ui_url?: string;
+  temporal_ui_port?: string;
+  workflow_id?: string;
   error?: string;
 }
 
