@@ -48,6 +48,7 @@ uploads/
 
 # WebReel (demo recordings)
 webreel.config.json
+.webreel/
 videos/
 
 # OS
