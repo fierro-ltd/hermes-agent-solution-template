@@ -464,20 +464,17 @@ async def stream_submission_evaluation(submission_id: uuid.UUID):
         f"RUBRIC:\n{rubric_text}\n"
     )
 
-    # Build user message — multipart for images, plain text otherwise
+    # Build user message — for images, instruct the agent to use its vision tool
     if sub["content_type"] == "image" and sub["file_path"]:
-        import base64
         full_path = _safe_upload_path(sub["file_path"])
-        with open(full_path, "rb") as f:
-            img_data = base64.b64encode(f.read()).decode("ascii")
-        ext = os.path.splitext(sub["file_path"])[1].lower()
-        mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
-        mime = mime_map.get(ext, "image/jpeg")
-        user_content: str | list = [
-            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_data}"}},
-        ]
+        user_content = (
+            "This submission is a scanned exam image. "
+            f"Use your vision tool to analyze the image at: {full_path}\n"
+            "Read ALL text, handwritten answers, diagrams, and annotations in the image. "
+            "Then evaluate the student's work against the rubric.\n"
+        )
         if sub["content"]:
-            user_content.append({"type": "text", "text": sub["content"]})
+            user_content += f"\nAdditional notes from the professor: {sub['content']}\n"
     else:
         user_content = sub["content"]
 
