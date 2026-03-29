@@ -1,5 +1,5 @@
 import { Outlet, createRootRoute, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { NavBar } from "@/components/nav-bar";
 import { authClient } from "@/lib/auth-client";
 
@@ -15,20 +15,30 @@ function RootLayout() {
   const isLoginPage = location.pathname === "/login";
   const isSignedIn = !!session?.user;
 
+  // Check if backend has auth bypassed (dev/demo mode)
+  const [authBypassed, setAuthBypassed] = useState(false);
   useEffect(() => {
+    fetch("/health")
+      .then((r) => r.json())
+      .then((d) => { if (d.auth_bypass) setAuthBypassed(true); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (authBypassed) return; // Skip redirect when auth is bypassed
     if (isPending) return;
     if (!isSignedIn && !isLoginPage) {
       void navigate({ to: "/login" });
     }
-  }, [isPending, isSignedIn, isLoginPage, navigate]);
+  }, [authBypassed, isPending, isSignedIn, isLoginPage, navigate]);
 
   // On the login page, skip the nav layout
   if (isLoginPage) {
     return <Outlet />;
   }
 
-  // While checking auth, show nothing to avoid flash
-  if (isPending) {
+  // While checking auth (not bypassed), show nothing to avoid flash
+  if (!authBypassed && isPending) {
     return null;
   }
 

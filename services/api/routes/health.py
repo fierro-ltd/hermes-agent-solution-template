@@ -43,5 +43,8 @@ async def health_check() -> dict:
     except Exception as exc:
         services["hermes"] = f"error: {exc}"
 
+    import os
+
+    auth_bypass = os.environ.get("AUTH_BYPASS", "").lower() == "true"
     overall = "ok" if all(v == "ok" for v in services.values()) else "degraded"
-    return {"status": overall, "services": services}
+    return {"status": overall, "services": services, "auth_bypass": auth_bypass}
