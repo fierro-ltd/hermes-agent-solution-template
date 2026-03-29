@@ -54,16 +54,17 @@ function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
+    <div className="flex min-h-dvh items-center justify-center hero-radial-bg relative p-4">
+      <div className="absolute inset-0 hero-grid-overlay" />
+      <Card className="relative z-10 w-full max-w-sm rounded-2xl border-slate-200 bg-white/95 backdrop-blur-md shadow-xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-2">
-            <GraduationCap className="size-8 text-foreground" />
+            <GraduationCap className="size-8 text-indigo-600" />
           </div>
-          <CardTitle className="text-xl">
+          <CardTitle className="text-xl font-bold text-slate-900">
             {isSignUp ? "Create Account" : "Sign In"}
           </CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Hermes Agent Solution Template — Grading Demo
           </p>
         </CardHeader>

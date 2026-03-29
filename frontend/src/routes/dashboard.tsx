@@ -334,29 +334,31 @@ function DashboardPage() {
   ];
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
       {/* Analytics Header */}
       <div>
-        <h1 className="text-2xl font-bold">Analytics</h1>
-        <p className="text-sm text-muted-foreground">Grading performance</p>
+        <span className="text-sm font-semibold tracking-wider text-slate-500 uppercase mb-2 block">
+          Overview
+        </span>
+        <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
       </div>
 
       {/* Stat Cards */}
       {statsLoading ? (
-        <div className="text-muted-foreground">Loading stats...</div>
+        <div className="text-slate-500">Loading stats...</div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-6">
           {statCards.map((card) => (
-            <Card key={card.title} className="relative">
+            <Card key={card.title} className="relative rounded-2xl border-slate-200 hover:shadow-lg hover:border-indigo-200 transition-all duration-300">
               <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4">
-                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                   {card.title}
                 </CardTitle>
                 <card.icon className={`size-4 ${card.iconColor}`} />
               </CardHeader>
               <CardContent className="px-4 pb-4 pt-0">
-                <div className="text-2xl font-bold">{card.value}</div>
-                <p className="text-xs text-muted-foreground mt-1">
+                <div className="text-2xl font-extrabold text-slate-900">{card.value}</div>
+                <p className="text-xs text-slate-500 mt-1">
                   {card.subtitle}
                 </p>
               </CardContent>
@@ -367,16 +369,16 @@ function DashboardPage() {
 
       {/* Recent Submissions Section */}
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <span className="text-sm font-semibold tracking-wider text-slate-500 uppercase mb-1 block">
               Recent Submissions
-            </h2>
-            <p className="text-sm text-muted-foreground">
+            </span>
+            <p className="text-sm text-slate-500">
               Latest grading activity
             </p>
           </div>
-          <Button onClick={() => setShowForm((v) => !v)} size="sm">
+          <Button onClick={() => setShowForm((v) => !v)} size="sm" className="rounded-full px-5">
             {showForm ? (
               <X className="size-4" />
             ) : (
@@ -388,9 +390,9 @@ function DashboardPage() {
 
         {/* Upload Form */}
         {showForm && (
-          <Card className="mb-6">
+          <Card className="mb-6 rounded-2xl border-slate-200">
             <CardHeader>
-              <CardTitle>New Submission</CardTitle>
+              <CardTitle className="text-xl font-bold text-slate-900">New Submission</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2 mb-4">
@@ -515,14 +517,14 @@ function DashboardPage() {
         {subsLoading ? (
           <div className="text-muted-foreground">Loading submissions...</div>
         ) : !submissions?.length ? (
-          <div className="text-muted-foreground text-center py-12">
+          <div className="text-slate-500 text-center py-12">
             No submissions yet. Upload one to get started.
           </div>
         ) : (
-          <div className="rounded-lg border">
+          <div className="rounded-2xl border border-slate-200 overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b bg-muted/50">
+                <tr className="border-b border-slate-200 bg-slate-50">
                   {([
                     { field: "title" as SortField, label: "Title", align: "left" },
                     { field: "student_name" as SortField, label: "Student", align: "left" },
@@ -536,17 +538,17 @@ function DashboardPage() {
                     return (
                       <th
                         key={col.field}
-                        className="px-4 py-3 text-left text-sm font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+                        className="px-4 py-3 text-left text-sm font-semibold text-slate-500 cursor-pointer select-none hover:text-slate-900 transition-colors"
                         onClick={() => toggleSort(col.field)}
                       >
                         <span className="inline-flex items-center gap-1">
                           {col.label}
-                          <SortIcon className={`size-3 ${sortField === col.field ? "text-foreground" : ""}`} />
+                          <SortIcon className={`size-3 ${sortField === col.field ? "text-slate-900" : ""}`} />
                         </span>
                       </th>
                     );
                   })}
-                  <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-500">
                     Actions
                   </th>
                 </tr>
@@ -555,7 +557,7 @@ function DashboardPage() {
                 {sortedSubmissions.map((sub) => (
                   <tr
                     key={sub.id}
-                    className="border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
                     onClick={() =>
                       void navigate({
                         to: "/submissions/$id",

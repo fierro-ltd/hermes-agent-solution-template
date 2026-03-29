@@ -156,3 +156,16 @@
 @utility slide-in-from-bottom-2 {
   --tw-enter-translate-y: 0.5rem;
 }
+
+/* Home page hero */
+.hero-radial-bg {
+  background: radial-gradient(ellipse at center, #ffffff 40%, #e2e8f0 60%, #312e81 100%);
+}
+
+.hero-grid-overlay {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.3) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mix-blend-mode: overlay;
+}

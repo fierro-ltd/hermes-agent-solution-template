@@ -27,27 +27,27 @@ export function NavBar() {
   }
 
   return (
-    <nav className="border-b bg-background shrink-0" aria-label="Main navigation">
-      <div className="flex h-16 items-center justify-between px-8">
+    <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200 shrink-0" aria-label="Main navigation">
+      <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2">
           <Link
             to="/"
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
-            <GraduationCap className="size-5 text-foreground" />
-            <span className="text-base font-bold font-mono tracking-tight">
+            <GraduationCap className="size-5 text-indigo-600" />
+            <span className="text-base font-bold tracking-tight">
               HAST
             </span>
-            <span className="text-xs text-muted-foreground font-mono">
+            <span className="text-sm text-slate-500 font-medium hidden sm:inline-block">
               Grading Demo
-            </span>
-            <span className="text-[10px] text-muted-foreground/50 font-mono">
-              v{__APP_VERSION__}
+              <span className="text-xs ml-1 bg-slate-100 px-1.5 py-0.5 rounded">
+                v{__APP_VERSION__}
+              </span>
             </span>
           </Link>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="hidden md:flex items-center gap-1">
           {links.map((link) => {
             const isActive = location.pathname === link.to;
             if (link.external) {
@@ -57,7 +57,7 @@ export function NavBar() {
                   href={link.to}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 px-4 py-2 pb-0.5 text-sm transition-colors border-b-2 text-muted-foreground hover:text-foreground border-transparent"
+                  className="flex items-center gap-1 px-4 py-5 text-sm transition-colors border-b-2 text-slate-500 hover:text-slate-900 border-transparent"
                 >
                   {link.label}
                   <ExternalLink className="size-3" />
@@ -68,10 +68,10 @@ export function NavBar() {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`px-4 py-2 pb-0.5 text-sm transition-colors border-b-2 ${
+                className={`px-4 py-5 text-sm transition-colors border-b-2 ${
                   isActive
-                    ? "text-foreground font-medium border-foreground"
-                    : "text-muted-foreground hover:text-foreground border-transparent"
+                    ? "text-slate-900 font-medium border-slate-900"
+                    : "text-slate-500 hover:text-slate-900 border-transparent"
                 }`}
                 aria-current={isActive ? "page" : undefined}
               >
@@ -81,16 +81,16 @@ export function NavBar() {
           })}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           {session?.user ? (
             <>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-slate-600 hidden sm:inline-block">
                 {session.user.email}
               </span>
               <button
                 type="button"
                 onClick={() => void handleSignOut()}
-                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded"
+                className="flex items-center gap-1.5 text-sm font-medium text-slate-700 hover:text-indigo-600 transition-colors"
               >
                 <LogOut className="size-3.5" />
                 Sign out
@@ -99,7 +99,7 @@ export function NavBar() {
           ) : (
             <Link
               to="/login"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1 rounded border"
+              className="text-sm font-medium text-slate-700 hover:text-indigo-600 transition-colors"
             >
               Sign in
             </Link>

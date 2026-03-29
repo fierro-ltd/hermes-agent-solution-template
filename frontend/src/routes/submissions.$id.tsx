@@ -74,10 +74,10 @@ function StatusTimeline({ status }: { status: SubmissionStatus }) {
                     ? "bg-red-100 text-red-700"
                     : step === "approved"
                       ? "bg-green-100 text-green-700"
-                      : "bg-blue-100 text-blue-700"
+                      : "bg-indigo-100 text-indigo-700"
                   : isCompleted
-                    ? "bg-muted text-foreground"
-                    : "bg-muted/50 text-muted-foreground"
+                    ? "bg-slate-100 text-slate-900"
+                    : "bg-slate-50 text-slate-400"
               }`}
             >
               {step.charAt(0).toUpperCase() + step.slice(1)}
@@ -336,19 +336,20 @@ function SubmissionDetailPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b px-8 py-4">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 sm:px-8 py-4">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="sm"
+            className="rounded-full"
             onClick={() => void navigate({ to: "/dashboard" })}
           >
             <ArrowLeft className="size-4" />
             Back
           </Button>
           <div>
-            <h1 className="text-xl font-bold">{sub.title}</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-xl font-bold text-slate-900">{sub.title}</h1>
+            <p className="text-sm text-slate-500">
               by {sub.student_name}
             </p>
           </div>
@@ -364,10 +365,10 @@ function SubmissionDetailPage() {
       {/* Split panels */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel -- Submission content (60%) */}
-        <div className="w-3/5 border-r">
+        <div className="w-3/5 border-r border-slate-200">
           <ScrollArea className="h-full">
             <div className="p-8">
-              <h2 className="text-lg font-semibold mb-4">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">
                 Submission Content
               </h2>
               {sub.status === "evaluating" && (
@@ -602,7 +603,7 @@ function SubmissionDetailPage() {
 
       {/* Bottom action bar */}
       {!isFinalized && feedback && (
-        <div className="border-t bg-background px-8 py-4">
+        <div className="border-t border-slate-200 bg-white px-8 py-4">
           <div className="flex items-center gap-3">
             <Button
               className="bg-green-600 hover:bg-green-700 text-white"

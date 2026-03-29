@@ -138,11 +138,11 @@ function ProviderCard({ provider, isSelected, onSelect }: ProviderCardProps) {
       disabled={disabled}
       onClick={() => onSelect(provider.id)}
       className={`
-        w-full text-left rounded-lg border-2 p-4 transition-all
+        w-full text-left rounded-2xl border-2 p-4 transition-all duration-300
         ${
           isSelected
-            ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-            : "border-border hover:border-muted-foreground/30"
+            ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200"
+            : "border-slate-200 hover:border-indigo-200 hover:shadow-md"
         }
         ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
       `}
@@ -249,9 +249,9 @@ function ProviderSection() {
   }
 
   return (
-    <Card>
+    <Card className="rounded-2xl border-slate-200">
       <CardHeader>
-        <CardTitle>LLM Provider & Model</CardTitle>
+        <CardTitle className="text-xl font-bold text-slate-900">LLM Provider & Model</CardTitle>
         <CardDescription>
           Select which AI provider and model to use for grading evaluations.
         </CardDescription>
@@ -426,9 +426,9 @@ function GradingSection() {
 
   return (
     <>
-      <Card>
+      <Card className="rounded-2xl border-slate-200">
         <CardHeader>
-          <CardTitle>Rubric</CardTitle>
+          <CardTitle className="text-xl font-bold text-slate-900">Rubric</CardTitle>
           <CardDescription>
             Define the grading rubric. Markdown formatting is supported.
           </CardDescription>
@@ -450,9 +450,9 @@ function GradingSection() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="rounded-2xl border-slate-200">
         <CardHeader>
-          <CardTitle>Grading Instructions</CardTitle>
+          <CardTitle className="text-xl font-bold text-slate-900">Grading Instructions</CardTitle>
           <CardDescription>
             Additional instructions for the AI grading agent.
           </CardDescription>
@@ -474,9 +474,9 @@ function GradingSection() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="rounded-2xl border-slate-200">
         <CardHeader>
-          <CardTitle>Max Score</CardTitle>
+          <CardTitle className="text-xl font-bold text-slate-900">Max Score</CardTitle>
           <CardDescription>
             The maximum score a submission can receive.
           </CardDescription>
@@ -508,17 +508,22 @@ function GradingSection() {
 
 function SettingsPage() {
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-8">
-      <h1 className="text-2xl font-bold">Settings</h1>
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
+      <div>
+        <span className="text-sm font-semibold tracking-wider text-slate-500 uppercase mb-2 block">
+          Configuration
+        </span>
+        <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
+      </div>
 
       {/* Section 1: LLM Provider & Model */}
-      <section className="space-y-4">
+      <section className="space-y-6">
         <ProviderSection />
       </section>
 
       {/* Section 2: Grading Configuration */}
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-muted-foreground">
+      <section className="space-y-6">
+        <h2 className="text-lg font-bold text-slate-900">
           Grading Configuration
         </h2>
         <GradingSection />

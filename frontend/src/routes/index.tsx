@@ -1,20 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Bot,
-  Timer,
-  UserCheck,
-  Settings2,
   ShieldCheck,
-  BarChart3,
   ArrowRight,
   Github,
-  Container,
+  Box,
   Wrench,
-  Zap,
+  Brain,
   CheckCircle2,
   Radio,
   ScanSearch,
   MessageSquare,
+  Timer,
+  UserCheck,
+  Settings2,
+  BarChart3,
 } from "lucide-react";
 import { MermaidDiagram } from "@/components/mermaid-diagram";
 
@@ -27,10 +27,10 @@ export const Route = createFileRoute("/")({
 // ---------------------------------------------------------------------------
 
 const STATS = [
-  { value: "9", label: "Containers" },
-  { value: "30+", label: "Hermes Tools" },
-  { value: "3", label: "AI Tool Types" },
-  { value: "100%", label: "Durable Execution" },
+  { value: "9", label: "Containers", icon: Box },
+  { value: "30+", label: "Hermes Tools", icon: Wrench },
+  { value: "3", label: "AI Tool Types", icon: Brain },
+  { value: "100%", label: "Durable Execution", icon: CheckCircle2 },
 ];
 
 const CAPABILITIES = [
@@ -175,56 +175,57 @@ function HomePage() {
       {/* ----------------------------------------------------------------- */}
       {/* Section 1: Hero */}
       {/* ----------------------------------------------------------------- */}
-      <section className="py-20 bg-card border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8 text-center">
-          <p className="tracking-[0.2em] text-xs text-muted-foreground uppercase mb-4">
+      <section className="relative pt-20 pb-32 px-4 sm:px-6 lg:px-8 text-center overflow-hidden hero-radial-bg">
+        <div className="absolute inset-0 hero-grid-overlay" />
+
+        <div className="relative z-10 max-w-4xl mx-auto">
+          <span className="text-sm font-bold tracking-[0.2em] text-slate-700 uppercase mb-4 block">
             Hermes Agent Solution Template
-          </p>
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight mb-6">
+          </span>
+          <h1 className="text-5xl md:text-6xl font-extrabold text-black mb-6 tracking-tight">
             AI Agent Workflows with
             <br />
             Durable Orchestration
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10">
+          <p className="text-lg md:text-xl text-slate-800 mb-10 max-w-2xl mx-auto font-medium">
             A production-ready template for building AI agent workflows with
             human-in-the-loop review. Powered by Hermes Agent, Temporal, and
             React.
           </p>
-          <div className="flex items-center justify-center gap-4 flex-wrap">
+
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-20">
             <Link
               to="/dashboard"
-              className="inline-flex items-center gap-2 bg-primary text-primary-foreground rounded-full px-8 py-3 font-medium hover:opacity-90 transition-opacity"
+              className="inline-flex items-center justify-center px-8 py-3 text-base font-semibold text-white bg-gradient-to-r from-indigo-700 to-blue-500 rounded-full hover:opacity-90 shadow-lg transition-all"
             >
               Try the Demo
-              <ArrowRight className="size-4" />
+              <ArrowRight className="size-4 ml-2" />
             </Link>
             <a
               href={GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 border border-border rounded-full px-8 py-3 font-medium hover:bg-muted transition-colors"
+              className="inline-flex items-center justify-center px-8 py-3 text-base font-semibold text-slate-900 bg-white/50 backdrop-blur-sm border border-slate-300 rounded-full hover:bg-white/80 shadow-sm transition-all"
             >
-              <Github className="size-4" />
+              <Github className="size-5 mr-2" />
               View on GitHub
             </a>
           </div>
-        </div>
-      </section>
 
-      {/* ----------------------------------------------------------------- */}
-      {/* Section 2: Stats Strip */}
-      {/* ----------------------------------------------------------------- */}
-      <section className="py-20 bg-background border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
             {STATS.map((stat) => (
-              <div key={stat.label}>
-                <div className="text-3xl md:text-4xl font-bold mb-1">
+              <div
+                key={stat.label}
+                className="bg-white/90 backdrop-blur-md border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center relative"
+              >
+                <stat.icon className="absolute top-4 right-4 size-3.5 text-indigo-300 opacity-50" />
+                <span className="text-4xl font-extrabold text-black mb-2">
                   {stat.value}
-                </div>
-                <div className="text-sm text-muted-foreground">
+                </span>
+                <span className="text-sm font-semibold text-slate-700">
                   {stat.label}
-                </div>
+                </span>
               </div>
             ))}
           </div>
@@ -232,29 +233,31 @@ function HomePage() {
       </section>
 
       {/* ----------------------------------------------------------------- */}
-      {/* Section 3: Capabilities */}
+      {/* Section 2: Capabilities */}
       {/* ----------------------------------------------------------------- */}
-      <section className="py-20 bg-card border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8">
-          <div className="text-center mb-12">
-            <p className="tracking-[0.2em] text-xs text-muted-foreground uppercase mb-3">
+      <section className="py-32 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <span className="text-sm font-semibold tracking-wider text-slate-500 uppercase mb-2 block">
               Capabilities
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold">
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
               What You Can Build
             </h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {CAPABILITIES.map((cap) => (
               <div
                 key={cap.title}
-                className="border border-border rounded-lg p-5 bg-card"
+                className="bg-white border border-slate-200 rounded-2xl p-8 hover:shadow-xl hover:border-indigo-200 transition-all duration-300 group text-center"
               >
-                <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <cap.icon className="size-5 text-primary" />
+                <div className="w-20 h-20 mx-auto bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 text-indigo-600 group-hover:scale-110 transition-transform duration-300">
+                  <cap.icon className="size-10" />
                 </div>
-                <h3 className="font-semibold mb-2">{cap.title}</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="text-xl font-bold text-slate-900 mb-3">
+                  {cap.title}
+                </h3>
+                <p className="text-slate-600 leading-relaxed">
                   {cap.description}
                 </p>
               </div>
@@ -264,31 +267,33 @@ function HomePage() {
       </section>
 
       {/* ----------------------------------------------------------------- */}
-      {/* Section 4: How It Works */}
+      {/* Section 3: How It Works */}
       {/* ----------------------------------------------------------------- */}
-      <section className="py-20 bg-background border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8">
-          <div className="text-center mb-12">
-            <p className="tracking-[0.2em] text-xs text-muted-foreground uppercase mb-3">
+      <section className="py-32 px-4 sm:px-6 lg:px-8 bg-slate-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <span className="text-sm font-semibold tracking-wider text-slate-500 uppercase mb-2 block">
               How It Works
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold">
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
               Four Simple Steps
             </h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {STEPS.map((step) => (
               <div
                 key={step.number}
-                className="border border-border rounded-lg p-5 bg-card text-center"
+                className="bg-white border border-slate-200 rounded-2xl p-8 hover:shadow-xl hover:border-indigo-200 transition-all duration-300 group text-center"
               >
-                <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <span className="text-sm font-bold text-primary">
+                <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <span className="text-xl font-extrabold text-indigo-600">
                     {step.number}
                   </span>
                 </div>
-                <h3 className="font-semibold mb-2">{step.title}</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="text-xl font-bold text-slate-900 mb-3">
+                  {step.title}
+                </h3>
+                <p className="text-slate-600 leading-relaxed">
                   {step.description}
                 </p>
               </div>
@@ -298,41 +303,45 @@ function HomePage() {
       </section>
 
       {/* ----------------------------------------------------------------- */}
-      {/* Section 5: Architecture Diagram */}
+      {/* Section 4: Architecture Diagram */}
       {/* ----------------------------------------------------------------- */}
-      <section className="py-20 bg-card border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8">
-          <div className="text-center mb-12">
-            <p className="tracking-[0.2em] text-xs text-muted-foreground uppercase mb-3">
+      <section className="py-32 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <span className="text-sm font-semibold tracking-wider text-slate-500 uppercase mb-2 block">
               Architecture
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold">System Design</h2>
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
+              System Design
+            </h2>
           </div>
-          <div className="border border-border rounded-lg p-8 bg-background">
+          <div className="border border-slate-200 rounded-2xl p-8 bg-slate-50">
             <MermaidDiagram chart={ARCHITECTURE_CHART} />
           </div>
         </div>
       </section>
 
       {/* ----------------------------------------------------------------- */}
-      {/* Section 6: Tech Stack */}
+      {/* Section 5: Tech Stack */}
       {/* ----------------------------------------------------------------- */}
-      <section className="py-20 bg-background border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8">
-          <div className="text-center mb-12">
-            <p className="tracking-[0.2em] text-xs text-muted-foreground uppercase mb-3">
+      <section className="py-32 px-4 sm:px-6 lg:px-8 bg-slate-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <span className="text-sm font-semibold tracking-wider text-slate-500 uppercase mb-2 block">
               Tech Stack
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold">Built With</h2>
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
+              Built With
+            </h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {TECH_STACK.map((tech) => (
               <div
                 key={tech.name}
-                className="border border-border rounded-lg p-5 bg-card text-center"
+                className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-xl hover:border-indigo-200 transition-all duration-300 text-center"
               >
-                <h3 className="font-semibold mb-1">{tech.name}</h3>
-                <p className="text-sm text-muted-foreground">{tech.role}</p>
+                <h3 className="font-bold text-slate-900 mb-1">{tech.name}</h3>
+                <p className="text-sm text-slate-600">{tech.role}</p>
               </div>
             ))}
           </div>
@@ -340,22 +349,23 @@ function HomePage() {
       </section>
 
       {/* ----------------------------------------------------------------- */}
-      {/* Section 7: CTA */}
+      {/* Section 6: CTA */}
       {/* ----------------------------------------------------------------- */}
-      <section className="py-20 bg-card">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+      <section className="relative py-32 px-4 sm:px-6 lg:px-8 overflow-hidden hero-radial-bg">
+        <div className="absolute inset-0 hero-grid-overlay" />
+        <div className="relative z-10 max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-extrabold text-black mb-4">
             Ready to Build?
           </h2>
-          <p className="text-lg text-muted-foreground mb-8">
+          <p className="text-lg text-slate-800 mb-8 font-medium">
             Fork the template, customize the rubric, deploy to any cloud
           </p>
           <Link
             to="/dashboard"
-            className="inline-flex items-center gap-2 bg-primary text-primary-foreground rounded-full px-8 py-3 font-medium hover:opacity-90 transition-opacity"
+            className="inline-flex items-center justify-center px-8 py-3 text-base font-semibold text-white bg-gradient-to-r from-indigo-700 to-blue-500 rounded-full hover:opacity-90 shadow-lg transition-all"
           >
             Get Started
-            <ArrowRight className="size-4" />
+            <ArrowRight className="size-4 ml-2" />
           </Link>
         </div>
       </section>

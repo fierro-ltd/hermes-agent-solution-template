@@ -47,7 +47,7 @@ function RootLayout() {
   }
 
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-dvh flex-col bg-slate-50">
       <NavBar />
       <main className="flex-1 overflow-auto">
         <Outlet />
