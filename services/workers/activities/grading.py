@@ -346,17 +346,24 @@ async def evaluate_submission(
 
     system_prompt = _build_system_prompt(rubric, professor_feedback)
 
-    # Build user message — for images, instruct the agent to use its vision tool
-    # on the file path. The primary model (GLM-5) is text-only; the Hermes vision
-    # tool (OpenRouter Gemini 3.1 Flash Lite) handles image analysis separately.
+    # Build user message — for images, encode as base64 data URL and instruct the
+    # agent to use its vision tool. The primary model (GLM-5) is text-only; the
+    # Hermes vision tool (OpenRouter Gemini 3.1 Flash Lite) handles image analysis.
     if content_type == "image" and file_path:
+        import base64
         upload_dir = os.environ.get("UPLOAD_DIR", "/app/uploads")
         full_path = os.path.realpath(os.path.join(upload_dir, file_path))
         if not full_path.startswith(os.path.realpath(upload_dir)):
             raise ApplicationError("Invalid file path", non_retryable=True)
+        with open(full_path, "rb") as f:
+            img_data = base64.b64encode(f.read()).decode("ascii")
+        ext = os.path.splitext(file_path)[1].lower()
+        mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+        mime = mime_map.get(ext, "image/jpeg")
+        image_url = f"data:{mime};base64,{img_data}"
         user_content = (
             "This submission is a scanned exam image. "
-            f"Use your vision tool to analyze the image at: {full_path}\n"
+            f"Use your vision tool to analyze this image URL: {image_url}\n"
             "Read ALL text, handwritten answers, diagrams, and annotations in the image. "
             "Then evaluate the student's work against the rubric.\n"
         )
