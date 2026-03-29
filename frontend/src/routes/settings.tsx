@@ -17,10 +17,11 @@ import {
   useUpdateSetting,
   useProviderConfig,
   useUpdateProviderConfig,
+  useRuntimeConfig,
 } from "@/api/hooks";
 import type { Provider } from "@/api/types";
 import { toast } from "sonner";
-import { Save, Eye, EyeOff, Info, Check } from "lucide-react";
+import { Save, Eye, EyeOff, Info, Check, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -182,6 +183,172 @@ function ProviderCard({ provider, isSelected, onSelect }: ProviderCardProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Runtime status section (read-only)
+// ---------------------------------------------------------------------------
+
+function StatusDot({ ok }: { ok: boolean }) {
+  return (
+    <span
+      className={`inline-block h-2 w-2 rounded-full ${ok ? "bg-green-500" : "bg-red-400"}`}
+    />
+  );
+}
+
+function RuntimeStatusSection() {
+  const { data: config, isLoading } = useRuntimeConfig();
+
+  if (isLoading) {
+    return (
+      <Card className="rounded-2xl border-slate-200">
+        <CardContent className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading runtime status...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!config) return null;
+
+  const items = [
+    {
+      label: "Hermes Gateway",
+      ok: !!config.hermes_api_url,
+      detail: config.hermes_api_url ? "Connected" : "Not set",
+    },
+    {
+      label: "Gateway Auth Key",
+      ok: config.hermes_api_key_set,
+      detail: config.hermes_api_key_set ? "Configured" : "Not set",
+    },
+    {
+      label: "OpenCode Go API Key",
+      ok: config.opencode_go_key_set,
+      detail: config.opencode_go_key_set ? "Configured" : "Not set",
+    },
+    {
+      label: "OpenRouter API Key",
+      ok: config.openrouter_key_set,
+      detail: config.openrouter_key_set ? "Configured" : "Not set",
+    },
+  ];
+
+  return (
+    <Card className="rounded-2xl border-slate-200">
+      <CardHeader>
+        <CardTitle className="text-xl font-bold text-slate-900">Runtime Status</CardTitle>
+        <CardDescription>
+          Current configuration from environment variables. API key changes require a container restart.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {items.map((item) => (
+            <div
+              key={item.label}
+              className="flex items-center gap-2.5 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5"
+            >
+              <StatusDot ok={item.ok} />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-900">{item.label}</p>
+                <p
+                  className={`text-xs ${item.ok ? "text-green-600" : "text-red-500"}`}
+                >
+                  {item.detail}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Vision model section
+// ---------------------------------------------------------------------------
+
+function VisionModelSection() {
+  const { data: config } = useProviderConfig();
+  const updateConfig = useUpdateProviderConfig();
+
+  const [visionProvider, setVisionProvider] = useState("");
+  const [visionModel, setVisionModel] = useState("");
+
+  useEffect(() => {
+    if (config) {
+      setVisionProvider(config.vision_provider ?? "");
+      setVisionModel(config.vision_model ?? "");
+    }
+  }, [config]);
+
+  function handleSaveVision() {
+    if (!config) return;
+
+    updateConfig.mutate(
+      {
+        provider: config.provider,
+        model: config.model,
+        api_key: "",
+        vision_provider: visionProvider.trim(),
+        vision_model: visionModel.trim(),
+      },
+      {
+        onSuccess: () => {
+          toast.success("Vision model configuration saved");
+        },
+        onError: (err) => {
+          toast.error(err.message);
+        },
+      },
+    );
+  }
+
+  return (
+    <Card className="rounded-2xl border-slate-200">
+      <CardHeader>
+        <CardTitle className="text-xl font-bold text-slate-900">Vision Model</CardTitle>
+        <CardDescription>
+          Configure the vision model used for image-based submissions (exam scans, handwritten work).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <label htmlFor="vision-provider-input" className="text-sm font-medium">
+            Provider
+          </label>
+          <Input
+            id="vision-provider-input"
+            value={visionProvider}
+            onChange={(e) => setVisionProvider(e.target.value)}
+            placeholder="e.g. openrouter"
+          />
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="vision-model-input" className="text-sm font-medium">
+            Model
+          </label>
+          <Input
+            id="vision-model-input"
+            value={visionModel}
+            onChange={(e) => setVisionModel(e.target.value)}
+            placeholder="e.g. google/gemini-2.5-flash-preview-05-20"
+          />
+        </div>
+        <Button
+          onClick={handleSaveVision}
+          disabled={updateConfig.isPending}
+        >
+          <Save className="size-4" />
+          Save Vision Configuration
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Provider configuration section
 // ---------------------------------------------------------------------------
 
@@ -321,7 +488,7 @@ function ProviderSection() {
             {/* API key */}
             <div className="space-y-2">
               <label htmlFor="api-key-input" className="text-sm font-medium">
-                API Key
+                Hermes Gateway Key
               </label>
               <div className="relative">
                 <Input
@@ -332,7 +499,7 @@ function ProviderSection() {
                   placeholder={
                     config?.api_key_set
                       ? `Current key: ${config.api_key_hint}`
-                      : "Paste your API key"
+                      : "Paste your Hermes gateway auth key"
                   }
                   className="pr-10"
                 />
@@ -351,7 +518,7 @@ function ProviderSection() {
               </div>
               {config?.api_key_set && !apiKey && (
                 <p className="text-xs text-muted-foreground">
-                  An API key is saved. Leave blank to keep the current key.
+                  A gateway key is saved. Leave blank to keep the current key.
                 </p>
               )}
             </div>
@@ -360,8 +527,9 @@ function ProviderSection() {
             <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/50">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
               <p className="text-xs text-blue-700 dark:text-blue-300">
-                API key changes require a service restart to take effect. The
-                model selection applies to the next grading evaluation.
+                This key authenticates the worker to the Hermes gateway. Upstream
+                provider API keys (OpenCode Go, OpenRouter) are configured via
+                environment variables and require a container restart to change.
               </p>
             </div>
 
@@ -516,9 +684,19 @@ function SettingsPage() {
         <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
       </div>
 
+      {/* Section 0: Runtime Status */}
+      <section className="space-y-6">
+        <RuntimeStatusSection />
+      </section>
+
       {/* Section 1: LLM Provider & Model */}
       <section className="space-y-6">
         <ProviderSection />
+      </section>
+
+      {/* Section 1b: Vision Model */}
+      <section className="space-y-6">
+        <VisionModelSection />
       </section>
 
       {/* Section 2: Grading Configuration */}

@@ -84,6 +84,9 @@ INSERT INTO app_settings (key, value) VALUES ('rubric', '{
 INSERT INTO app_settings (key, value) VALUES ('grading_instructions', '');
 INSERT INTO app_settings (key, value) VALUES ('max_score', '100');
 INSERT INTO app_settings (key, value) VALUES ('hermes_model', 'glm-5');
+INSERT INTO app_settings (key, value) VALUES ('hermes_provider', 'opencode-go') ON CONFLICT DO NOTHING;
+INSERT INTO app_settings (key, value) VALUES ('hermes_vision_provider', 'openrouter') ON CONFLICT DO NOTHING;
+INSERT INTO app_settings (key, value) VALUES ('hermes_vision_model', 'google/gemini-3.1-flash-lite-preview') ON CONFLICT DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- better-auth tables (user, session, account, verification)

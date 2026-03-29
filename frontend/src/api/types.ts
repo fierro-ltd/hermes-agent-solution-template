@@ -70,12 +70,16 @@ export interface ProviderConfig {
   model: string;
   api_key_set: boolean;
   api_key_hint: string;
+  vision_provider?: string;
+  vision_model?: string;
 }
 
 export interface ProviderConfigUpdate {
   provider: string;
   model: string;
   api_key: string;
+  vision_provider?: string;
+  vision_model?: string;
 }
 
 export interface Provider {
@@ -114,6 +118,14 @@ export interface TraceStep {
   output?: string;
   duration_ms?: number;
   timestamp: number;
+}
+
+export interface RuntimeConfig {
+  hermes_api_url: string;
+  hermes_api_key_set: boolean;
+  opencode_go_key_set: boolean;
+  openrouter_key_set: boolean;
+  temporal_address: string;
 }
 
 export interface AgentTrace {
