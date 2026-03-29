@@ -17,28 +17,32 @@ function RootLayout() {
 
   // Check if backend has auth bypassed (dev/demo mode)
   const [authBypassed, setAuthBypassed] = useState(false);
+  const [bypassChecked, setBypassChecked] = useState(false);
   useEffect(() => {
     fetch("/health")
       .then((r) => r.json())
-      .then((d) => { if (d.auth_bypass) setAuthBypassed(true); })
-      .catch(() => {});
+      .then((d) => {
+        if (d.auth_bypass) setAuthBypassed(true);
+      })
+      .catch(() => {})
+      .finally(() => setBypassChecked(true));
   }, []);
 
   useEffect(() => {
-    if (authBypassed) return; // Skip redirect when auth is bypassed
+    if (!bypassChecked) return; // Wait for bypass check to complete
+    if (authBypassed) return;
     if (isPending) return;
     if (!isSignedIn && !isLoginPage) {
       void navigate({ to: "/login" });
     }
-  }, [authBypassed, isPending, isSignedIn, isLoginPage, navigate]);
+  }, [bypassChecked, authBypassed, isPending, isSignedIn, isLoginPage, navigate]);
 
-  // On the login page, skip the nav layout
   if (isLoginPage) {
     return <Outlet />;
   }
 
-  // While checking auth (not bypassed), show nothing to avoid flash
-  if (!authBypassed && isPending) {
+  // Show nothing until we know if auth is bypassed
+  if (!bypassChecked || (!authBypassed && isPending)) {
     return null;
   }
 
