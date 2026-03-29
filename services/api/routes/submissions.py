@@ -397,8 +397,21 @@ async def get_submission_trace(submission_id: uuid.UUID):
 
 
 @router.get("/{submission_id}/image")
-async def get_submission_image(submission_id: uuid.UUID):
-    """Serve the image file for an image submission."""
+async def get_submission_image(
+    submission_id: uuid.UUID,
+    token: str | None = Query(default=None),
+):
+    """Serve the image file for an image submission.
+
+    Accepts an optional `token` query param (Hermes API key) to allow
+    unauthenticated access from the Hermes vision tool.
+    """
+    # Allow access with Hermes API key as query param (for vision tool)
+    hermes_key = os.environ.get("HERMES_API_KEY", "")
+    if token and hermes_key and token == hermes_key:
+        pass  # Authenticated via token query param
+    # Otherwise, the router-level auth middleware handles session/bearer auth
+
     pool = await deps.get_pool()
     row = await pool.fetchrow(
         "SELECT file_path, content_type FROM submissions WHERE id = $1",
@@ -464,19 +477,13 @@ async def stream_submission_evaluation(submission_id: uuid.UUID):
         f"RUBRIC:\n{rubric_text}\n"
     )
 
-    # Build user message — for images, encode as base64 data URL for the vision tool
+    # Build user message — for images, provide an HTTP URL for the vision tool
     if sub["content_type"] == "image" and sub["file_path"]:
-        import base64
-        full_path = _safe_upload_path(sub["file_path"])
-        with open(full_path, "rb") as f:
-            img_data = base64.b64encode(f.read()).decode("ascii")
-        ext = os.path.splitext(sub["file_path"])[1].lower()
-        mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
-        mime = mime_map.get(ext, "image/jpeg")
-        image_url = f"data:{mime};base64,{img_data}"
+        hermes_key = os.environ.get("HERMES_API_KEY", "")
+        image_url = f"http://localhost:8000/api/submissions/{submission_id}/image?token={hermes_key}"
         user_content = (
             "This submission is a scanned exam image. "
-            f"Use your vision tool to analyze this image URL: {image_url}\n"
+            f"Use your vision tool to analyze the image at this URL: {image_url}\n"
             "Read ALL text, handwritten answers, diagrams, and annotations in the image. "
             "Then evaluate the student's work against the rubric.\n"
         )

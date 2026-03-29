@@ -140,6 +140,7 @@ services:
       - DATABASE_URL=postgresql://app_user:app_password@postgres:5432/app_db
       - HERMES_API_URL=http://hermes-gateway:8642
       - HERMES_API_KEY=${HERMES_API_KEY:-}
+      - API_PUBLIC_URL=${API_PUBLIC_URL:-http://api:8000}
       - TASK_QUEUE=grading
     volumes:
       - upload_data:/app/uploads
