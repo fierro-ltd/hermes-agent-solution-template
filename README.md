@@ -260,3 +260,40 @@ The database schema is initialized automatically by `infra/shared/init-db.sql` w
 ```bash
 docker compose -f infra/shared/docker-compose.yml down -v
 ```
+
+## Recording Demo Videos
+
+Demo videos are recorded using [WebReel](https://github.com/vercel-labs/webreel), a CLI tool that drives a headless browser through scripted interactions and outputs MP4/GIF/WebM files. WebReel is installed globally (not as a project dependency) so it can be reused across projects.
+
+### Setup
+
+```bash
+# Install WebReel globally (one-time)
+npm install -g webreel
+
+# Copy the example config
+cp webreel.config.json.example webreel.config.json
+```
+
+### Configuration
+
+Edit `webreel.config.json` to match your environment:
+
+- **`baseUrl`** — Point to your deployment (`https://your-domain.com` or `http://localhost:8000`)
+- **Submission IDs** — Update the `navigate` URLs in Acts 4 and 5 to reference completed submissions with scores and agent traces (the example config includes placeholder IDs from the Hetzner deployment)
+
+### Recording
+
+```bash
+# Preview in a visible browser (no video output)
+webreel preview
+
+# Record the demo video
+webreel record
+
+# Output: videos/hast-demo.mp4
+```
+
+The example config defines a single continuous video with 5 acts: Home page tour, Settings peek, Hermes Chat, text submission demo (Math Algebra Exam), and image submission demo (scanned UTN exam with vision). Each demo submission shows the real evaluating state briefly, then navigates to a pre-evaluated submission to show results without the 30-140s agent wait time.
+
+> **Note:** `webreel.config.json` and `videos/` are gitignored. Only the `.example` template is committed.
