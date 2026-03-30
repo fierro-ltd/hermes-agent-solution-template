@@ -505,12 +505,9 @@ async def evaluate_submission(
 
     feedback = _parse_agent_response(raw_content)
 
-    # Report token usage to Mission Control
+    # Report token usage to Mission Control (fire-and-forget)
     if trace_data:
-        try:
-            await _report_to_mission_control(trace_data, submission_id)
-        except Exception:
-            pass
+        asyncio.create_task(_report_to_mission_control(trace_data, submission_id))
 
     activity.logger.info("Submission %s evaluated: score=%.1f", submission_id, feedback.suggested_score)
 

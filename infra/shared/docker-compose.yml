@@ -201,7 +201,7 @@ services:
   mission-control:
     image: ghcr.io/builderz-labs/mission-control:latest
     ports:
-      - "127.0.0.1:3001:3000"
+      - "127.0.0.1:3002:3000"
     environment:
       - MC_ALLOW_ANY_HOST=true
       - NEXT_PUBLIC_GATEWAY_OPTIONAL=true
@@ -218,7 +218,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 15s
       timeout: 5s
-      retries: 3
+      retries: 6
+      start_period: 30s
 
 volumes:
   postgres_data:
