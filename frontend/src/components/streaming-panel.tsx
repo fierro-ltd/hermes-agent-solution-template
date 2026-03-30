@@ -60,12 +60,12 @@ export function StreamingPanel({ text, isStreaming, error }: StreamingPanelProps
                   const isBlock = className?.startsWith("language-");
                   if (isBlock) {
                     return (
-                      <pre className="bg-muted rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap">
+                      <pre className="bg-slate-800 text-slate-100 rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap">
                         <code {...props}>{children}</code>
                       </pre>
                     );
                   }
-                  return <code className="bg-muted px-1 rounded text-xs" {...props}>{children}</code>;
+                  return <code className="bg-slate-200 text-slate-800 px-1 py-0.5 rounded text-xs" {...props}>{children}</code>;
                 },
                 // Don't wrap block code in an extra <pre>
                 pre({ children }) {
