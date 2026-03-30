@@ -22,6 +22,7 @@ RUN mkdir -p /root/.hermes
 
 COPY services/hermes/SOUL.md /root/.hermes/SOUL.md
 COPY services/hermes/config.yaml /root/.hermes/config.yaml
+COPY services/hermes/hooks/ /root/.hermes/hooks/
 
 EXPOSE 8642
 

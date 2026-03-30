@@ -13,11 +13,17 @@ export function NavBar() {
       ? `${window.location.protocol}//${window.location.hostname}:8080`
       : ":8080";
 
+  const mcUrl =
+    typeof window !== "undefined"
+      ? `${window.location.protocol}//${window.location.hostname}:3001`
+      : ":3001";
+
   const links = [
     { to: "/", label: "Home", external: false },
     { to: "/dashboard", label: "Dashboard", external: false },
     { to: "/docs", label: "API", external: true },
     { to: chatUrl, label: "Chat", external: true },
+    { to: mcUrl, label: "Mission Control", external: true },
     { to: "/settings", label: "Settings", external: false },
   ] as const;
 

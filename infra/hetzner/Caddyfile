@@ -17,3 +17,8 @@ hermes-agent-solution-template.fierro.co.uk:8080 {
 hermes-agent-solution-template.fierro.co.uk:9233 {
     reverse_proxy localhost:8233
 }
+
+# Mission Control — HTTPS on port 3001 (proxied to Docker-mapped 3002)
+hermes-agent-solution-template.fierro.co.uk:3001 {
+    reverse_proxy localhost:3002
+}
