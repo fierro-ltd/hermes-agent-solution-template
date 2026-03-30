@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   useHermesSessions,
   useHermesStats,
@@ -7,11 +7,19 @@ import {
   useHermesSkills,
   useHermesSoul,
   useHermesConfig,
+  useProviderConfig,
+  useUpdateProviderConfig,
 } from "@/api/hooks";
 import type {
   HermesSession,
   HermesSkill,
+  Provider,
 } from "@/api/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 import {
   Activity,
   Cpu,
@@ -21,6 +29,12 @@ import {
   Brain,
   Zap,
   Search,
+  Layers,
+  Save,
+  Eye,
+  EyeOff,
+  Info,
+  Check,
 } from "lucide-react";
 
 export const Route = createFileRoute("/hermes")({
@@ -28,10 +42,11 @@ export const Route = createFileRoute("/hermes")({
 });
 
 function HermesPage() {
-  const [activeTab, setActiveTab] = useState<"overview" | "sessions" | "skills" | "config">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "models" | "sessions" | "skills" | "config">("overview");
 
   const tabs = [
     { id: "overview" as const, label: "Overview", icon: Activity },
+    { id: "models" as const, label: "Models", icon: Layers },
     { id: "sessions" as const, label: "Sessions", icon: MessageSquare },
     { id: "skills" as const, label: "Skills", icon: Wrench },
     { id: "config" as const, label: "Config & SOUL", icon: FileText },
@@ -66,6 +81,7 @@ function HermesPage() {
 
       {/* Tab content */}
       {activeTab === "overview" && <OverviewTab />}
+      {activeTab === "models" && <ModelsTab />}
       {activeTab === "sessions" && <SessionsTab />}
       {activeTab === "skills" && <SkillsTab />}
       {activeTab === "config" && <ConfigTab />}
@@ -299,6 +315,186 @@ function SkillsTab() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// --- Provider definitions ---
+const PROVIDERS: Provider[] = [
+  { id: "openrouter", name: "OpenRouter", env_var: "OPENROUTER_API_KEY", enabled: true,
+    models: ["anthropic/claude-sonnet-4", "google/gemini-2.5-flash", "openai/gpt-4o", "meta-llama/llama-4-maverick"] },
+  { id: "opencode-go", name: "OpenCode Go", env_var: "OPENCODE_GO_API_KEY", enabled: true,
+    models: ["glm-5", "kimi-k2.5", "minimax-m2.7", "minimax-m2.5"] },
+  { id: "anthropic", name: "Anthropic", env_var: "ANTHROPIC_API_KEY", enabled: false, models: [] },
+  { id: "openai", name: "OpenAI", env_var: "OPENAI_API_KEY", enabled: false, models: [] },
+  { id: "nous", name: "Nous Portal", env_var: "", enabled: false, models: [] },
+  { id: "zai", name: "z.ai / GLM", env_var: "GLM_API_KEY", enabled: false, models: [] },
+  { id: "kimi-coding", name: "Kimi / Moonshot", env_var: "KIMI_API_KEY", enabled: false, models: [] },
+  { id: "minimax", name: "MiniMax", env_var: "MINIMAX_API_KEY", enabled: false, models: [] },
+  { id: "alibaba", name: "Alibaba / Qwen", env_var: "DASHSCOPE_API_KEY", enabled: false, models: [] },
+  { id: "opencode-zen", name: "OpenCode Zen", env_var: "OPENCODE_ZEN_API_KEY", enabled: false, models: [] },
+];
+
+// --- Models Tab ---
+function ModelsTab() {
+  const { data: config, isLoading } = useProviderConfig();
+  const updateConfig = useUpdateProviderConfig();
+
+  const [selectedProvider, setSelectedProvider] = useState("");
+  const [model, setModel] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [visionProvider, setVisionProvider] = useState("");
+  const [visionModel, setVisionModel] = useState("");
+
+  useEffect(() => {
+    if (config) {
+      setSelectedProvider(config.provider || "");
+      setModel(config.model || "");
+      setApiKey("");
+      setVisionProvider(config.vision_provider ?? "");
+      setVisionModel(config.vision_model ?? "");
+    }
+  }, [config]);
+
+  const selectedProviderDef = PROVIDERS.find((p) => p.id === selectedProvider);
+
+  const handleSelectProvider = useCallback((id: string) => {
+    setSelectedProvider(id);
+    setModel("");
+    setApiKey("");
+  }, []);
+
+  function handleSaveProvider() {
+    if (!selectedProvider) { toast.error("Please select a provider"); return; }
+    if (!model.trim()) { toast.error("Please enter a model name"); return; }
+    updateConfig.mutate(
+      { provider: selectedProvider, model: model.trim(), api_key: apiKey, vision_provider: visionProvider.trim(), vision_model: visionModel.trim() },
+      { onSuccess: () => { toast.success("Model configuration saved"); setApiKey(""); setShowApiKey(false); }, onError: (err) => { toast.error(err.message); } },
+    );
+  }
+
+  if (isLoading) return <div className="text-slate-500 py-8">Loading model configuration...</div>;
+
+  return (
+    <div className="space-y-6">
+      {/* Text Model (Primary) */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Cpu className="size-5 text-indigo-600" />
+          <h3 className="text-lg font-bold text-slate-900">Text Model</h3>
+        </div>
+        <p className="text-sm text-slate-500 mb-6">Primary LLM used by Hermes for grading evaluations and reasoning.</p>
+
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Provider</label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PROVIDERS.map((provider) => {
+                const disabled = !provider.enabled;
+                const isSelected = selectedProvider === provider.id;
+                return (
+                  <button
+                    key={provider.id}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => handleSelectProvider(provider.id)}
+                    className={`w-full text-left rounded-2xl border-2 p-4 transition-all duration-300
+                      ${isSelected ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200" : "border-slate-200 hover:border-indigo-200 hover:shadow-md"}
+                      ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {isSelected ? (
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600">
+                            <Check className="h-3 w-3 text-white" />
+                          </div>
+                        ) : (
+                          <div className={`h-5 w-5 rounded-full border-2 ${disabled ? "border-slate-200" : "border-slate-300"}`} />
+                        )}
+                        <span className={`font-medium ${disabled ? "text-slate-400" : ""}`}>{provider.name}</span>
+                      </div>
+                      {disabled ? (
+                        <Badge variant="secondary" className="text-xs">Coming soon</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">Available</Badge>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {selectedProvider && selectedProviderDef?.enabled && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Model</label>
+                <Input value={model} onChange={(e) => setModel(e.target.value)}
+                  placeholder={selectedProviderDef.models.length > 0 ? `e.g. ${selectedProviderDef.models[0]}` : "Enter model identifier"} />
+                {selectedProviderDef.models.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <span className="text-xs text-slate-500">Suggested:</span>
+                    {selectedProviderDef.models.map((m) => (
+                      <button key={m} type="button" onClick={() => setModel(m)}
+                        className={`rounded-md border px-2 py-0.5 text-xs transition-colors ${model === m ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-500 hover:border-slate-400 hover:text-slate-700"}`}>
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Hermes Gateway Key</label>
+                <div className="relative">
+                  <Input type={showApiKey ? "text" : "password"} value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={config?.api_key_set ? `Current: ${config.api_key_hint}` : "Paste gateway auth key"} className="pr-10" />
+                  <button type="button" onClick={() => setShowApiKey((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {config?.api_key_set && !apiKey && (
+                  <p className="text-xs text-slate-400">Leave blank to keep current key.</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Vision Model */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Eye className="size-5 text-indigo-600" />
+          <h3 className="text-lg font-bold text-slate-900">Vision Model</h3>
+        </div>
+        <p className="text-sm text-slate-500 mb-6">Used for image-based submissions — exam scans, handwritten work, diagrams.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Provider</label>
+            <Input value={visionProvider} onChange={(e) => setVisionProvider(e.target.value)} placeholder="e.g. openrouter" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Model</label>
+            <Input value={visionModel} onChange={(e) => setVisionModel(e.target.value)} placeholder="e.g. google/gemini-3.1-flash-lite-preview" />
+          </div>
+        </div>
+      </div>
+
+      {/* Info + Save */}
+      <div className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+        <p className="text-xs text-blue-700">
+          The gateway key authenticates the worker to Hermes. Upstream provider API keys (OpenCode Go, OpenRouter) are environment variables and require a container restart.
+        </p>
+      </div>
+
+      <Button onClick={handleSaveProvider} disabled={updateConfig.isPending || !model.trim()} className="rounded-xl">
+        <Save className="size-4" />
+        Save Model Configuration
+      </Button>
     </div>
   );
 }
