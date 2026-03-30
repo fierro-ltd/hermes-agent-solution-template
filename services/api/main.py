@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from services.api import deps
 from services.api.auth import verify_auth
-from services.api.routes import health, reviews, settings, stats, submissions
+from services.api.routes import health, hermes, reviews, settings, stats, submissions
 
 AUTH_SERVICE_URL = os.environ.get("AUTH_SERVICE_URL", "http://auth:3100")
 
@@ -122,6 +122,7 @@ app.include_router(submissions.router, prefix="/api", dependencies=_auth_deps)
 app.include_router(reviews.router, prefix="/api", dependencies=_auth_deps)
 app.include_router(settings.router, prefix="/api", dependencies=_auth_deps)
 app.include_router(stats.router, prefix="/api", dependencies=_auth_deps)
+app.include_router(hermes.router, prefix="/api", dependencies=_auth_deps)
 
 # ---------------------------------------------------------------------------
 # SPA fallback — serve frontend from /app/static (production)

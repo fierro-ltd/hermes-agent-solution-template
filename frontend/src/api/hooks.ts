@@ -12,6 +12,13 @@ import type {
   RuntimeConfig,
   WorkflowProgress,
   AgentTrace,
+  HermesSession,
+  HermesSessionDetail,
+  HermesSessionStats,
+  HermesGateway,
+  HermesSkill,
+  HermesSoul,
+  HermesConfig,
 } from "./types";
 
 // Returns a getter that fetches the current session token from better-auth
@@ -264,6 +271,87 @@ export function useUpdateProviderConfig() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["provider-config"] });
+    },
+  });
+}
+
+// ---- Hermes Dashboard hooks ----
+
+export function useHermesSessions() {
+  const getToken = useToken();
+  return useQuery({
+    queryKey: ["hermes-sessions"],
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchJSON<{ sessions: HermesSession[]; total: number }>("/api/hermes/sessions", undefined, token);
+    },
+  });
+}
+
+export function useHermesSessionDetail(sessionId: string) {
+  const getToken = useToken();
+  return useQuery({
+    queryKey: ["hermes-session", sessionId],
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchJSON<HermesSessionDetail>(`/api/hermes/sessions/${sessionId}`, undefined, token);
+    },
+    enabled: !!sessionId,
+  });
+}
+
+export function useHermesStats() {
+  const getToken = useToken();
+  return useQuery({
+    queryKey: ["hermes-stats"],
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchJSON<HermesSessionStats>("/api/hermes/sessions/stats", undefined, token);
+    },
+  });
+}
+
+export function useHermesGateway() {
+  const getToken = useToken();
+  return useQuery({
+    queryKey: ["hermes-gateway"],
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchJSON<HermesGateway>("/api/hermes/gateway", undefined, token);
+    },
+    refetchInterval: 10000,
+  });
+}
+
+export function useHermesSkills() {
+  const getToken = useToken();
+  return useQuery({
+    queryKey: ["hermes-skills"],
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchJSON<{ skills: HermesSkill[]; total: number }>("/api/hermes/skills", undefined, token);
+    },
+  });
+}
+
+export function useHermesSoul() {
+  const getToken = useToken();
+  return useQuery({
+    queryKey: ["hermes-soul"],
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchJSON<HermesSoul>("/api/hermes/soul", undefined, token);
+    },
+  });
+}
+
+export function useHermesConfig() {
+  const getToken = useToken();
+  return useQuery({
+    queryKey: ["hermes-config"],
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchJSON<HermesConfig>("/api/hermes/config", undefined, token);
     },
   });
 }

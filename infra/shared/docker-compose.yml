@@ -119,8 +119,10 @@ services:
       - AUTH_SERVICE_URL=http://auth:3100
       - TEMPORAL_UI_PORT=${TEMPORAL_UI_PORT:-8233}
       - UPLOAD_DIR=/app/uploads
+      - HERMES_HOME=/root/.hermes
     volumes:
       - upload_data:/app/uploads
+      - hermes_data:/root/.hermes:ro
     depends_on:
       temporal:
         condition: service_healthy
