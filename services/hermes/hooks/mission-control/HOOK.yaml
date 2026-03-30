@@ -1,0 +1,6 @@
+name: mission-control
+description: Sends telemetry to Mission Control dashboard
+events:
+  - agent:start
+  - agent:end
+  - session:start

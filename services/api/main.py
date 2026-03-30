@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Hermes Agent Solution Template (HAST) API",
-    version="0.1.0",
+    version="0.15.0",
     lifespan=lifespan,
 )
 

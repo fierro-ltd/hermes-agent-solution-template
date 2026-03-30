@@ -4,7 +4,7 @@
 
 A production-ready solution template for building AI agent workflows with durable orchestration and human-in-the-loop review. Ships with an exam grading demo: professors upload student exam submissions, a Hermes AI agent evaluates them against a configurable rubric, and professors finalize grades through a Temporal-powered workflow. The template pattern (AI evaluate → human review → approve/reject) is generic and designed to be forked for other use cases.
 
-Current version: **v0.1.0**
+Current version: **v0.15.0**
 
 ## Tech Stack
 

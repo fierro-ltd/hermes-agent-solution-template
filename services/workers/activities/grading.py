@@ -24,6 +24,8 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 HERMES_API_URL = os.environ.get("HERMES_API_URL", "http://hermes:8000")
 HERMES_API_KEY = os.environ.get("HERMES_API_KEY", "")
 DEFAULT_MODEL = os.environ.get("HERMES_DEFAULT_MODEL", "hermes-agent")
+MC_URL = os.environ.get("MC_URL", "")
+MC_API_KEY = os.environ.get("MC_API_KEY", "")
 
 
 async def _get_db_pool():
@@ -53,6 +55,32 @@ async def _get_provider_settings(pool) -> dict[str, str]:
         "model": settings.get("hermes_model", "") or DEFAULT_MODEL,
         "api_key": settings.get("hermes_api_key", "") or HERMES_API_KEY,
     }
+
+
+async def _report_to_mission_control(
+    trace_data: dict, submission_id: str
+) -> None:
+    """Fire-and-forget token usage report to Mission Control."""
+    if not MC_URL or not MC_API_KEY:
+        return
+    usage = trace_data.get("usage", {})
+    if not usage:
+        return
+    payload = {
+        "model": trace_data.get("model", "unknown"),
+        "session_id": f"grading-{submission_id}",
+        "input_tokens": usage.get("input_tokens", 0),
+        "output_tokens": usage.get("output_tokens", 0),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            await client.post(
+                f"{MC_URL}/api/tokens",
+                json=payload,
+                headers={"x-api-key": MC_API_KEY},
+            )
+    except Exception:
+        pass  # MC down must not affect grading
 
 
 def _build_system_prompt(rubric: str, professor_feedback: str | None) -> str:
@@ -476,6 +504,14 @@ async def evaluate_submission(
         raise ApplicationError("Empty response from Hermes", non_retryable=True)
 
     feedback = _parse_agent_response(raw_content)
+
+    # Report token usage to Mission Control
+    if trace_data:
+        try:
+            await _report_to_mission_control(trace_data, submission_id)
+        except Exception:
+            pass
+
     activity.logger.info("Submission %s evaluated: score=%.1f", submission_id, feedback.suggested_score)
 
     feedback_dict = {
