@@ -57,12 +57,62 @@ async def _get_provider_settings(pool) -> dict[str, str]:
     }
 
 
+async def mc_register_agent() -> None:
+    """Register hermes-grader with Mission Control on startup."""
+    if not MC_URL or not MC_API_KEY:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"{MC_URL}/api/agents/register",
+                json={
+                    "name": "hermes-grader",
+                    "role": "agent",
+                    "capabilities": ["grading", "vision", "web-search"],
+                    "framework": "generic",
+                },
+                headers={"x-api-key": MC_API_KEY},
+            )
+    except Exception:
+        pass
+
+
+async def _mc_heartbeat() -> None:
+    """Send heartbeat to keep hermes-grader online in MC."""
+    if not MC_URL or not MC_API_KEY:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            # Find agent ID by name
+            resp = await client.get(
+                f"{MC_URL}/api/agents",
+                headers={"x-api-key": MC_API_KEY},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                agents = data.get("agents", data) if isinstance(data, dict) else data
+                for agent in agents if isinstance(agents, list) else []:
+                    if agent.get("name") == "hermes-grader":
+                        agent_id = agent.get("id")
+                        if agent_id:
+                            await client.get(
+                                f"{MC_URL}/api/agents/{agent_id}/heartbeat",
+                                headers={"x-api-key": MC_API_KEY},
+                            )
+                        break
+    except Exception:
+        pass
+
+
 async def _report_to_mission_control(
     trace_data: dict, submission_id: str
 ) -> None:
-    """Fire-and-forget token usage report to Mission Control."""
+    """Report token usage and send heartbeat to Mission Control."""
     if not MC_URL or not MC_API_KEY:
         return
+    # Heartbeat to keep agent online
+    await _mc_heartbeat()
+    # Report tokens
     usage = trace_data.get("usage", {})
     if not usage:
         return
