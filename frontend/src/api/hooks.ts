@@ -9,6 +9,7 @@ import type {
   Stats,
   ProviderConfig,
   ProviderConfigUpdate,
+  RuntimeConfig,
   WorkflowProgress,
   AgentTrace,
 } from "./types";
@@ -219,6 +220,19 @@ export function useUpdateSetting() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+}
+
+// ---- Runtime configuration ----
+
+export function useRuntimeConfig() {
+  const getToken = useToken();
+  return useQuery({
+    queryKey: ["runtime-config"],
+    queryFn: async () => {
+      const token = await getToken();
+      return fetchJSON<RuntimeConfig>("/api/settings/runtime", undefined, token);
     },
   });
 }

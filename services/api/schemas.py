@@ -106,7 +106,9 @@ class ProviderConfigUpdate(BaseModel):
 
     provider: str = Field(..., min_length=1, max_length=50)
     model: str = Field(..., min_length=1, max_length=200)
-    api_key: str = Field(default="", max_length=500)
+    api_key: str = Field(default="", max_length=500, description="Hermes API key")
+    vision_provider: str | None = Field(default=None, max_length=50)
+    vision_model: str | None = Field(default=None, max_length=200)
 
 
 class ProviderConfigResponse(BaseModel):
@@ -116,6 +118,8 @@ class ProviderConfigResponse(BaseModel):
     model: str
     api_key_set: bool
     api_key_hint: str
+    vision_provider: str | None = None
+    vision_model: str | None = None
 
 
 # ---------------------------------------------------------------------------

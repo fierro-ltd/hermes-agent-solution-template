@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, HTTPException, status
 
 from services.api import deps
@@ -19,6 +21,8 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 _PROVIDER_KEY = "hermes_provider"
 _MODEL_KEY = "hermes_model"
 _API_KEY_KEY = "hermes_api_key"
+_VISION_PROVIDER_KEY = "hermes_vision_provider"
+_VISION_MODEL_KEY = "hermes_vision_model"
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +59,23 @@ async def _upsert_setting(pool, key: str, value: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# GET /api/settings/runtime
+# ---------------------------------------------------------------------------
+
+
+@router.get("/runtime")
+async def get_runtime_config() -> dict:
+    """Return the actual runtime configuration from env vars and Hermes config."""
+    return {
+        "hermes_api_url": "connected" if os.environ.get("HERMES_API_URL") else "",
+        "hermes_api_key_set": bool(os.environ.get("HERMES_API_KEY", "")),
+        "opencode_go_key_set": bool(os.environ.get("LLM_API_KEY", "")),
+        "openrouter_key_set": bool(os.environ.get("OPENROUTER_API_KEY", "")),
+        "temporal_address": "connected" if os.environ.get("TEMPORAL_ADDRESS") else "",
+    }
+
+
+# ---------------------------------------------------------------------------
 # GET /api/settings
 # ---------------------------------------------------------------------------
 
@@ -85,12 +106,16 @@ async def get_provider_config() -> ProviderConfigResponse:
     provider = await _get_setting(pool, _PROVIDER_KEY)
     model = await _get_setting(pool, _MODEL_KEY)
     api_key = await _get_setting(pool, _API_KEY_KEY)
+    vision_provider = await _get_setting(pool, _VISION_PROVIDER_KEY)
+    vision_model = await _get_setting(pool, _VISION_MODEL_KEY)
 
     return ProviderConfigResponse(
         provider=provider,
         model=model,
         api_key_set=bool(api_key),
         api_key_hint=_mask_api_key(api_key),
+        vision_provider=vision_provider or None,
+        vision_model=vision_model or None,
     )
 
 
@@ -121,14 +146,24 @@ async def update_provider_config(body: ProviderConfigUpdate) -> ProviderConfigRe
     if body.api_key:
         await _upsert_setting(pool, _API_KEY_KEY, body.api_key)
 
+    # Save vision settings if provided
+    if body.vision_provider is not None:
+        await _upsert_setting(pool, _VISION_PROVIDER_KEY, body.vision_provider)
+    if body.vision_model is not None:
+        await _upsert_setting(pool, _VISION_MODEL_KEY, body.vision_model)
+
     # Read back current state for response
     api_key = await _get_setting(pool, _API_KEY_KEY)
+    vision_provider = await _get_setting(pool, _VISION_PROVIDER_KEY)
+    vision_model = await _get_setting(pool, _VISION_MODEL_KEY)
 
     return ProviderConfigResponse(
         provider=body.provider,
         model=body.model,
         api_key_set=bool(api_key),
         api_key_hint=_mask_api_key(api_key),
+        vision_provider=vision_provider or None,
+        vision_model=vision_model or None,
     )
 
 
@@ -147,7 +182,7 @@ async def update_setting(key: str, body: SettingUpdate) -> SettingResponse:
         )
 
     # Prevent direct writes to provider config keys via this endpoint
-    if key in {_PROVIDER_KEY, _MODEL_KEY, _API_KEY_KEY}:
+    if key in {_PROVIDER_KEY, _MODEL_KEY, _API_KEY_KEY, _VISION_PROVIDER_KEY, _VISION_MODEL_KEY}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Use the /api/settings/provider endpoint for provider configuration",
