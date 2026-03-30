@@ -201,7 +201,7 @@ For the initial configuration (before the Settings page is used), set these in `
 
 ```bash
 HERMES_MODEL_PROVIDER=opencode-go   # Provider for the Hermes gateway
-LLM_API_KEY=sk-...                  # API key passed to Hermes
+OPENCODE_GO_API_KEY=sk-...                  # API key passed to Hermes
 ```
 
 ### How provider selection works
@@ -302,7 +302,7 @@ tools:
     api_key: ${OPENROUTER_VISION_API_KEY}
 ```
 
-Set `OPENROUTER_VISION_API_KEY` in `infra/shared/.env`. If this is the same key as your main `LLM_API_KEY`, you can reference it: `api_key: ${LLM_API_KEY}`.
+Set `OPENROUTER_VISION_API_KEY` in `infra/shared/.env`. If this is the same key as your main `OPENCODE_GO_API_KEY`, you can reference it: `api_key: ${OPENCODE_GO_API_KEY}`.
 
 ### Adding a custom tool
 

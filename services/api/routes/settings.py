@@ -69,7 +69,7 @@ async def get_runtime_config() -> dict:
     return {
         "hermes_api_url": "connected" if os.environ.get("HERMES_API_URL") else "",
         "hermes_api_key_set": bool(os.environ.get("HERMES_API_KEY", "")),
-        "opencode_go_key_set": bool(os.environ.get("LLM_API_KEY", "")),
+        "opencode_go_key_set": bool(os.environ.get("OPENCODE_GO_API_KEY", "")),
         "openrouter_key_set": bool(os.environ.get("OPENROUTER_API_KEY", "")),
         "temporal_address": "connected" if os.environ.get("TEMPORAL_ADDRESS") else "",
     }

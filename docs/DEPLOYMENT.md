@@ -54,7 +54,7 @@ Edit `infra/shared/.env` and set at minimum:
 
 ```bash
 # Required: Your LLM provider API key
-LLM_API_KEY=your-actual-api-key
+OPENCODE_GO_API_KEY=your-actual-api-key
 
 # Required: Self-assigned key for Hermes gateway auth
 HERMES_API_KEY=any-secret-string-you-choose
@@ -201,7 +201,7 @@ All variables are set in `infra/shared/.env`. The `.env` file is loaded by Docke
 
 | Variable | Service(s) | Description | Example |
 |---|---|---|---|
-| `LLM_API_KEY` | hermes-gateway | API key for the LLM provider (OpenCode Go, OpenRouter, etc.) | `sk-abc123...` |
+| `OPENCODE_GO_API_KEY` | hermes-gateway | API key for the LLM provider (OpenCode Go, OpenRouter, etc.) | `sk-abc123...` |
 | `HERMES_API_KEY` | hermes-gateway, worker, librechat | Self-assigned key protecting the Hermes `/v1/chat/completions` endpoint | `my-hermes-secret` |
 | `TAVILY_API_KEY` | hermes-gateway | API key for Tavily web search (used by Hermes web tool) | `tvly-abc123...` |
 
@@ -264,7 +264,7 @@ AUTH_SECRET=$(openssl rand -hex 32)
 HERMES_API_KEY=$(openssl rand -hex 16)
 MONGO_ROOT_PASSWORD=$(openssl rand -hex 16)
 
-LLM_API_KEY=your-production-llm-api-key
+OPENCODE_GO_API_KEY=your-production-llm-api-key
 TAVILY_API_KEY=your-tavily-api-key
 HERMES_MODEL_PROVIDER=opencode-go
 SITE_DOMAIN=grades.yourdomain.com
@@ -613,7 +613,7 @@ docker compose -f infra/shared/docker-compose.yml logs temporal
 **Problem:** Grading workflow fails at the evaluate_submission activity.
 
 **Possible causes:**
-1. `LLM_API_KEY` is not set or invalid
+1. `OPENCODE_GO_API_KEY` is not set or invalid
 2. `HERMES_API_KEY` mismatch between worker and hermes-gateway
 3. `TAVILY_API_KEY` is not set (web search tool will fail)
 4. The configured model is not available at the LLM provider

@@ -137,7 +137,7 @@ cd hermes-agent-solution-template
 cp infra/local/.env.example infra/shared/.env
 
 # 3. Edit .env with your API keys
-#    At minimum, set LLM_API_KEY, HERMES_API_KEY, and TAVILY_API_KEY
+#    At minimum, set OPENCODE_GO_API_KEY, HERMES_API_KEY, and TAVILY_API_KEY
 
 # 4. Start all services
 docker compose -f infra/shared/docker-compose.yml \
@@ -191,7 +191,7 @@ All configuration is managed through environment variables. Copy `infra/local/.e
 | Variable | Description | Default |
 |---|---|---|
 | `HERMES_MODEL_PROVIDER` | LLM provider for Hermes agent | `opencode-go` |
-| `LLM_API_KEY` | LLM provider API key (OpenCode Go, OpenRouter, etc.) | required |
+| `OPENCODE_GO_API_KEY` | LLM provider API key (OpenCode Go, OpenRouter, etc.) | required |
 | `HERMES_API_KEY` | Self-assigned key for Hermes gateway auth | required |
 | `TAVILY_API_KEY` | Tavily API key for Hermes web search tool | required |
 | `AUTH_SECRET` | Random string for signing auth sessions | required in production |
