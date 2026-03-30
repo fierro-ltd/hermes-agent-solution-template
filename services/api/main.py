@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Edu Agent Platform API",
+    title="Hermes Agent Solution Template (HAST) API",
     version="0.1.0",
     lifespan=lifespan,
 )
