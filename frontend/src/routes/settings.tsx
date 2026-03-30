@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,11 +17,20 @@ import {
   useUpdateSetting,
   useProviderConfig,
   useUpdateProviderConfig,
-  useRuntimeConfig,
 } from "@/api/hooks";
 import type { Provider } from "@/api/types";
 import { toast } from "sonner";
-import { Save, Eye, EyeOff, Info, Check, Loader2 } from "lucide-react";
+import {
+  Save,
+  Eye,
+  EyeOff,
+  Info,
+  Check,
+  Cpu,
+  ImageIcon,
+  GraduationCap,
+  ArrowRight,
+} from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -183,93 +192,209 @@ function ProviderCard({ provider, isSelected, onSelect }: ProviderCardProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Runtime status section (read-only)
+// Provider tab
 // ---------------------------------------------------------------------------
 
-function StatusDot({ ok }: { ok: boolean }) {
-  return (
-    <span
-      className={`inline-block h-2 w-2 rounded-full ${ok ? "bg-green-500" : "bg-red-400"}`}
-    />
-  );
-}
+function ProviderTab() {
+  const { data: config, isLoading } = useProviderConfig();
+  const updateConfig = useUpdateProviderConfig();
 
-function RuntimeStatusSection() {
-  const { data: config, isLoading } = useRuntimeConfig();
+  const [selectedProvider, setSelectedProvider] = useState("");
+  const [model, setModel] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
 
-  if (isLoading) {
-    return (
-      <Card className="rounded-2xl border-slate-200">
-        <CardContent className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading runtime status...
-        </CardContent>
-      </Card>
+  useEffect(() => {
+    if (config) {
+      setSelectedProvider(config.provider || "");
+      setModel(config.model || "");
+      setApiKey("");
+    }
+  }, [config]);
+
+  const selectedProviderDef = PROVIDERS.find((p) => p.id === selectedProvider);
+
+  const handleSelectProvider = useCallback((id: string) => {
+    setSelectedProvider(id);
+    setModel("");
+    setApiKey("");
+  }, []);
+
+  function handleSaveProvider() {
+    if (!selectedProvider) {
+      toast.error("Please select a provider");
+      return;
+    }
+    if (!model.trim()) {
+      toast.error("Please enter a model name");
+      return;
+    }
+
+    updateConfig.mutate(
+      { provider: selectedProvider, model: model.trim(), api_key: apiKey },
+      {
+        onSuccess: () => {
+          toast.success("Provider configuration saved");
+          setApiKey("");
+          setShowApiKey(false);
+        },
+        onError: (err) => {
+          toast.error(err.message);
+        },
+      },
     );
   }
 
-  if (!config) return null;
-
-  const items = [
-    {
-      label: "Hermes Gateway",
-      ok: !!config.hermes_api_url,
-      detail: config.hermes_api_url ? "Connected" : "Not set",
-    },
-    {
-      label: "Gateway Auth Key",
-      ok: config.hermes_api_key_set,
-      detail: config.hermes_api_key_set ? "Configured" : "Not set",
-    },
-    {
-      label: "OpenCode Go API Key",
-      ok: config.opencode_go_key_set,
-      detail: config.opencode_go_key_set ? "Configured" : "Not set",
-    },
-    {
-      label: "OpenRouter API Key",
-      ok: config.openrouter_key_set,
-      detail: config.openrouter_key_set ? "Configured" : "Not set",
-    },
-  ];
+  if (isLoading) {
+    return <div className="text-slate-500 py-8">Loading provider configuration...</div>;
+  }
 
   return (
-    <Card className="rounded-2xl border-slate-200">
-      <CardHeader>
-        <CardTitle className="text-xl font-bold text-slate-900">Runtime Status</CardTitle>
-        <CardDescription>
-          Current configuration from environment variables. API key changes require a container restart.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {items.map((item) => (
-            <div
-              key={item.label}
-              className="flex items-center gap-2.5 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5"
-            >
-              <StatusDot ok={item.ok} />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-900">{item.label}</p>
-                <p
-                  className={`text-xs ${item.ok ? "text-green-600" : "text-red-500"}`}
-                >
-                  {item.detail}
+    <div className="space-y-6">
+      <Card className="rounded-2xl border-slate-200">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold text-slate-900">LLM Provider & Model</CardTitle>
+          <CardDescription>
+            Select which AI provider and model to use for grading evaluations.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Provider</label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PROVIDERS.map((provider) => (
+                <ProviderCard
+                  key={provider.id}
+                  provider={provider}
+                  isSelected={selectedProvider === provider.id}
+                  onSelect={handleSelectProvider}
+                />
+              ))}
+            </div>
+          </div>
+
+          {selectedProvider && selectedProviderDef?.enabled && (
+            <>
+              <Separator />
+
+              <div className="space-y-2">
+                <label htmlFor="model-input" className="text-sm font-medium">
+                  Model
+                </label>
+                <Input
+                  id="model-input"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder={
+                    selectedProviderDef.models.length > 0
+                      ? `e.g. ${selectedProviderDef.models[0]}`
+                      : "Enter model identifier"
+                  }
+                />
+                {selectedProviderDef.models.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <span className="text-xs text-muted-foreground">
+                      Suggested:
+                    </span>
+                    {selectedProviderDef.models.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setModel(m)}
+                        className={`
+                          rounded-md border px-2 py-0.5 text-xs transition-colors
+                          ${
+                            model === m
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground"
+                          }
+                        `}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="api-key-input" className="text-sm font-medium">
+                  Hermes Gateway Key
+                </label>
+                <div className="relative">
+                  <Input
+                    id="api-key-input"
+                    type={showApiKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={
+                      config?.api_key_set
+                        ? `Current key: ${config.api_key_hint}`
+                        : "Paste your Hermes gateway auth key"
+                    }
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showApiKey ? "Hide API key" : "Show API key"}
+                  >
+                    {showApiKey ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {config?.api_key_set && !apiKey && (
+                  <p className="text-xs text-muted-foreground">
+                    A gateway key is saved. Leave blank to keep the current key.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                <p className="text-xs text-blue-700">
+                  This key authenticates the worker to the Hermes gateway. Upstream
+                  provider API keys (OpenCode Go, OpenRouter) are configured via
+                  environment variables and require a container restart to change.
                 </p>
               </div>
-            </div>
-          ))}
+
+              <Button
+                onClick={handleSaveProvider}
+                disabled={updateConfig.isPending || !model.trim()}
+              >
+                <Save className="size-4" />
+                Save Provider Configuration
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Link to Hermes page for runtime introspection */}
+      <Link
+        to="/hermes"
+        className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-lg hover:border-indigo-200 transition-all duration-300 group"
+      >
+        <div>
+          <h3 className="text-sm font-bold text-slate-900">View Hermes Agent internals</h3>
+          <p className="text-xs text-slate-500 mt-1">Sessions, skills, SOUL.md, gateway status, and config</p>
         </div>
-      </CardContent>
-    </Card>
+        <ArrowRight className="size-4 text-slate-400 group-hover:text-indigo-600 transition-colors" />
+      </Link>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Vision model section
+// Vision tab
 // ---------------------------------------------------------------------------
 
-function VisionModelSection() {
+function VisionTab() {
   const { data: config } = useProviderConfig();
   const updateConfig = useUpdateProviderConfig();
 
@@ -349,210 +474,10 @@ function VisionModelSection() {
 }
 
 // ---------------------------------------------------------------------------
-// Provider configuration section
+// Grading tab
 // ---------------------------------------------------------------------------
 
-function ProviderSection() {
-  const { data: config, isLoading } = useProviderConfig();
-  const updateConfig = useUpdateProviderConfig();
-
-  const [selectedProvider, setSelectedProvider] = useState("");
-  const [model, setModel] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [showApiKey, setShowApiKey] = useState(false);
-
-  // Sync form state from server data
-  useEffect(() => {
-    if (config) {
-      setSelectedProvider(config.provider || "");
-      setModel(config.model || "");
-      // Never populate the API key field from the server -- it is masked
-      setApiKey("");
-    }
-  }, [config]);
-
-  const selectedProviderDef = PROVIDERS.find((p) => p.id === selectedProvider);
-
-  const handleSelectProvider = useCallback((id: string) => {
-    setSelectedProvider(id);
-    // Reset model when switching providers
-    setModel("");
-    setApiKey("");
-  }, []);
-
-  function handleSaveProvider() {
-    if (!selectedProvider) {
-      toast.error("Please select a provider");
-      return;
-    }
-    if (!model.trim()) {
-      toast.error("Please enter a model name");
-      return;
-    }
-
-    updateConfig.mutate(
-      { provider: selectedProvider, model: model.trim(), api_key: apiKey },
-      {
-        onSuccess: () => {
-          toast.success("Provider configuration saved");
-          setApiKey(""); // Clear the input after save
-          setShowApiKey(false);
-        },
-        onError: (err) => {
-          toast.error(err.message);
-        },
-      },
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-8 text-center text-muted-foreground">
-          Loading provider configuration...
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="rounded-2xl border-slate-200">
-      <CardHeader>
-        <CardTitle className="text-xl font-bold text-slate-900">LLM Provider & Model</CardTitle>
-        <CardDescription>
-          Select which AI provider and model to use for grading evaluations.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Provider selector */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Provider</label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {PROVIDERS.map((provider) => (
-              <ProviderCard
-                key={provider.id}
-                provider={provider}
-                isSelected={selectedProvider === provider.id}
-                onSelect={handleSelectProvider}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Model + API key fields -- only visible when a provider is selected */}
-        {selectedProvider && selectedProviderDef?.enabled && (
-          <>
-            <Separator />
-
-            {/* Model */}
-            <div className="space-y-2">
-              <label htmlFor="model-input" className="text-sm font-medium">
-                Model
-              </label>
-              <Input
-                id="model-input"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder={
-                  selectedProviderDef.models.length > 0
-                    ? `e.g. ${selectedProviderDef.models[0]}`
-                    : "Enter model identifier"
-                }
-              />
-              {selectedProviderDef.models.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  <span className="text-xs text-muted-foreground">
-                    Suggested:
-                  </span>
-                  {selectedProviderDef.models.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setModel(m)}
-                      className={`
-                        rounded-md border px-2 py-0.5 text-xs transition-colors
-                        ${
-                          model === m
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground"
-                        }
-                      `}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* API key */}
-            <div className="space-y-2">
-              <label htmlFor="api-key-input" className="text-sm font-medium">
-                Hermes Gateway Key
-              </label>
-              <div className="relative">
-                <Input
-                  id="api-key-input"
-                  type={showApiKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={
-                    config?.api_key_set
-                      ? `Current key: ${config.api_key_hint}`
-                      : "Paste your Hermes gateway auth key"
-                  }
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label={showApiKey ? "Hide API key" : "Show API key"}
-                >
-                  {showApiKey ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              {config?.api_key_set && !apiKey && (
-                <p className="text-xs text-muted-foreground">
-                  A gateway key is saved. Leave blank to keep the current key.
-                </p>
-              )}
-            </div>
-
-            {/* Info note */}
-            <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/50">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                This key authenticates the worker to the Hermes gateway. Upstream
-                provider API keys (OpenCode Go, OpenRouter) are configured via
-                environment variables and require a container restart to change.
-              </p>
-            </div>
-
-            {/* Save button */}
-            <Button
-              onClick={handleSaveProvider}
-              disabled={updateConfig.isPending || !model.trim()}
-            >
-              <Save className="size-4" />
-              Save Provider Configuration
-            </Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Grading configuration section (existing)
-// ---------------------------------------------------------------------------
-
-function GradingSection() {
+function GradingTab() {
   const { data: settings, isLoading } = useSettings();
   const updateSetting = useUpdateSetting();
 
@@ -583,17 +508,11 @@ function GradingSection() {
   }
 
   if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-8 text-center text-muted-foreground">
-          Loading grading settings...
-        </CardContent>
-      </Card>
-    );
+    return <div className="text-slate-500 py-8">Loading grading settings...</div>;
   }
 
   return (
-    <>
+    <div className="space-y-6">
       <Card className="rounded-2xl border-slate-200">
         <CardHeader>
           <CardTitle className="text-xl font-bold text-slate-900">Rubric</CardTitle>
@@ -666,17 +585,25 @@ function GradingSection() {
           </Button>
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Main page
+// Main page — tabbed layout
 // ---------------------------------------------------------------------------
 
 function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<"provider" | "vision" | "grading">("provider");
+
+  const tabs = [
+    { id: "provider" as const, label: "Provider", icon: Cpu },
+    { id: "vision" as const, label: "Vision", icon: ImageIcon },
+    { id: "grading" as const, label: "Grading", icon: GraduationCap },
+  ];
+
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       <div>
         <span className="text-sm font-semibold tracking-wider text-slate-500 uppercase mb-2 block">
           Configuration
@@ -684,28 +611,28 @@ function SettingsPage() {
         <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
       </div>
 
-      {/* Section 0: Runtime Status */}
-      <section className="space-y-6">
-        <RuntimeStatusSection />
-      </section>
+      {/* Tab navigation */}
+      <div className="flex gap-1 border-b border-slate-200">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.id
+                ? "text-indigo-600 border-indigo-600"
+                : "text-slate-500 border-transparent hover:text-slate-900 hover:border-slate-300"
+            }`}
+          >
+            <tab.icon className="size-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Section 1: LLM Provider & Model */}
-      <section className="space-y-6">
-        <ProviderSection />
-      </section>
-
-      {/* Section 1b: Vision Model */}
-      <section className="space-y-6">
-        <VisionModelSection />
-      </section>
-
-      {/* Section 2: Grading Configuration */}
-      <section className="space-y-6">
-        <h2 className="text-lg font-bold text-slate-900">
-          Grading Configuration
-        </h2>
-        <GradingSection />
-      </section>
+      {/* Tab content */}
+      {activeTab === "provider" && <ProviderTab />}
+      {activeTab === "vision" && <VisionTab />}
+      {activeTab === "grading" && <GradingTab />}
     </div>
   );
 }
