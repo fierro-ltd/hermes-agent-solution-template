@@ -182,20 +182,18 @@ async def gateway_status():
         data = json.loads(state_path.read_text())
     except (json.JSONDecodeError, OSError):
         return {"running": False, "platforms": []}
-    # Check if PID is alive
+    # PID is from the Hermes container — we can't check it from the API container.
+    # Treat gateway as running if state file was recently updated.
     pid = data.get("pid")
-    running = False
-    if pid:
-        try:
-            os.kill(pid, 0)
-            running = True
-        except (OSError, ProcessLookupError):
-            pass
+    running = bool(pid)
     platforms = data.get("platforms", [])
     uptime = None
     start_time = data.get("updated_at") or data.get("start_time")
     if start_time and running:
-        uptime = time.time() - start_time
+        try:
+            uptime = time.time() - float(start_time)
+        except (ValueError, TypeError):
+            uptime = None
     return {
         "running": running,
         "pid": pid,
