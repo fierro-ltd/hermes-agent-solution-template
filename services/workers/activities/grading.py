@@ -68,9 +68,9 @@ async def _report_to_mission_control(
         return
     payload = {
         "model": trace_data.get("model", "unknown"),
-        "session_id": f"grading-{submission_id}",
-        "input_tokens": usage.get("input_tokens", 0),
-        "output_tokens": usage.get("output_tokens", 0),
+        "sessionId": f"grading-{submission_id}",
+        "inputTokens": usage.get("input_tokens", 0),
+        "outputTokens": usage.get("output_tokens", 0),
     }
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
