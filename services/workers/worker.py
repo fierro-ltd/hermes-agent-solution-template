@@ -17,9 +17,10 @@ async def main() -> None:
     logger.info("Connecting to Temporal at %s", temporal_address)
     client = await Client.connect(temporal_address)
 
-    # Register with Mission Control on startup
-    from services.workers.activities.grading import mc_register_agent
+    # Register with Mission Control on startup and send initial heartbeat
+    from services.workers.activities.grading import mc_register_agent, _mc_heartbeat
     await mc_register_agent()
+    await _mc_heartbeat()
     logger.info("Mission Control agent registration sent")
 
     logger.info("Starting worker on task queue: %s", GRADING_TASK_QUEUE)
