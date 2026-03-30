@@ -210,7 +210,7 @@ services:
       - API_KEY=${MC_API_KEY:-}
     volumes:
       - mc_data:/app/.data
-      - hermes_data:/root/.hermes:ro
+      - hermes_data:/nonexistent/.hermes:ro
     depends_on:
       hermes-gateway:
         condition: service_healthy
