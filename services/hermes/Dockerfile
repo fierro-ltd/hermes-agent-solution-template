@@ -18,11 +18,14 @@ RUN git clone https://github.com/NousResearch/hermes-agent.git . \
 
 ENV PATH="/opt/hermes/venv/bin:$PATH"
 
-RUN mkdir -p /root/.hermes
+RUN mkdir -p /root/.hermes && chmod 755 /root /root/.hermes
 
 COPY services/hermes/SOUL.md /root/.hermes/SOUL.md
 COPY services/hermes/config.yaml /root/.hermes/config.yaml
 COPY services/hermes/hooks/ /root/.hermes/hooks/
+
+# Make .hermes world-readable so MC container (uid 1001) can scan it
+RUN chmod -R a+rX /root/.hermes
 
 EXPOSE 8642
 

@@ -78,7 +78,7 @@ docker compose -f infra/shared/docker-compose.yml \
                up --build
 ```
 
-This starts all **9 containers**. First boot takes a few minutes as images are pulled and built. MongoDB and LibreChat will initialize on first start.
+This starts all **10 containers**. First boot takes a few minutes as images are pulled and built. MongoDB and LibreChat will initialize on first start.
 
 ### Step 5: Access the application
 
@@ -90,6 +90,7 @@ This starts all **9 containers**. First boot takes a few minutes as images are p
 | Temporal UI | http://localhost:8233 | Workflow inspector |
 | PostgreSQL | localhost:5432 | Database (user: `temporal`, password: `temporal`) |
 | MongoDB | localhost:27017 | LibreChat conversation store |
+| Mission Control | http://localhost:3001 | Agent observability dashboard |
 | Hermes Gateway | http://localhost:8642 | AI agent API |
 
 ### Step 6: Sign up
@@ -152,7 +153,7 @@ graph TD
 
 ### Base file (`infra/shared/docker-compose.yml`)
 
-Defines all 9 services, ports, health checks, dependencies, and volumes. This is used in both development and production.
+Defines all 10 services, ports, health checks, dependencies, and volumes. This is used in both development and production.
 
 Key features:
 - All ports bound to `127.0.0.1` (localhost only)
@@ -370,6 +371,7 @@ graph TB
             Temporal["temporal :7233"]
             TemporalUI["temporal-ui :8233"]
             Hermes["hermes-gateway :8642"]
+            MC["mission-control :3001"]
             Postgres["postgres :5432"]
             MongoDB["mongodb :27017"]
             LC["librechat :3080"]

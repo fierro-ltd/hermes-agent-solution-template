@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from "./routes/__root"
 import { Route as SettingsRouteImport } from "./routes/settings"
 import { Route as LoginRouteImport } from "./routes/login"
+import { Route as HermesRouteImport } from "./routes/hermes"
 import { Route as DashboardRouteImport } from "./routes/dashboard"
 import { Route as IndexRouteImport } from "./routes/index"
 import { Route as SubmissionsIndexRouteImport } from "./routes/submissions.index"
@@ -24,6 +25,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: "/login",
   path: "/login",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HermesRoute = HermesRouteImport.update({
+  id: "/hermes",
+  path: "/hermes",
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -50,6 +56,7 @@ const SubmissionsIdRoute = SubmissionsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute
   "/dashboard": typeof DashboardRoute
+  "/hermes": typeof HermesRoute
   "/login": typeof LoginRoute
   "/settings": typeof SettingsRoute
   "/submissions/$id": typeof SubmissionsIdRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof IndexRoute
   "/dashboard": typeof DashboardRoute
+  "/hermes": typeof HermesRoute
   "/login": typeof LoginRoute
   "/settings": typeof SettingsRoute
   "/submissions/$id": typeof SubmissionsIdRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   "/": typeof IndexRoute
   "/dashboard": typeof DashboardRoute
+  "/hermes": typeof HermesRoute
   "/login": typeof LoginRoute
   "/settings": typeof SettingsRoute
   "/submissions/$id": typeof SubmissionsIdRoute
@@ -77,6 +86,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/dashboard"
+    | "/hermes"
     | "/login"
     | "/settings"
     | "/submissions/$id"
@@ -85,6 +95,7 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/dashboard"
+    | "/hermes"
     | "/login"
     | "/settings"
     | "/submissions/$id"
@@ -93,6 +104,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/dashboard"
+    | "/hermes"
     | "/login"
     | "/settings"
     | "/submissions/$id"
@@ -102,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  HermesRoute: typeof HermesRoute
   LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
   SubmissionsIdRoute: typeof SubmissionsIdRoute
@@ -122,6 +135,13 @@ declare module "@tanstack/react-router" {
       path: "/login"
       fullPath: "/login"
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/hermes": {
+      id: "/hermes"
+      path: "/hermes"
+      fullPath: "/hermes"
+      preLoaderRoute: typeof HermesRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/dashboard": {
@@ -158,6 +178,7 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  HermesRoute: HermesRoute,
   LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
   SubmissionsIdRoute: SubmissionsIdRoute,

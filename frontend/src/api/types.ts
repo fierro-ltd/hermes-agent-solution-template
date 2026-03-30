@@ -140,3 +140,73 @@ export interface AgentTrace {
   tools_used: string[];
   model: string;
 }
+
+// ---------------------------------------------------------------------------
+// Hermes Dashboard types
+// ---------------------------------------------------------------------------
+
+export interface HermesSession {
+  id: string;
+  source: string;
+  model: string | null;
+  title: string | null;
+  started_at: number;
+  ended_at: number | null;
+  message_count: number;
+  tool_call_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number | null;
+  preview: string;
+  last_active: number | null;
+}
+
+export interface HermesMessage {
+  id: number;
+  session_id: string;
+  role: string;
+  content: string | null;
+  tool_calls: any;
+  tool_name: string | null;
+  timestamp: number;
+  token_count: number | null;
+}
+
+export interface HermesSessionDetail extends HermesSession {
+  messages: HermesMessage[];
+}
+
+export interface HermesSessionStats {
+  total_sessions: number;
+  by_source: { source: string; count: number }[];
+  by_model: { model: string; count: number }[];
+  total_input_tokens: number;
+  total_output_tokens: number;
+  estimated_cost_usd: number;
+  actual_cost_usd: number;
+}
+
+export interface HermesGateway {
+  running: boolean;
+  pid: number | null;
+  uptime_seconds: number | null;
+  platforms: { name: string; connected: boolean }[];
+}
+
+export interface HermesSkill {
+  name: string;
+  tool_count: number;
+  tools: string[];
+  has_description: boolean;
+  description_preview?: string;
+}
+
+export interface HermesSoul {
+  content: string;
+  exists: boolean;
+}
+
+export interface HermesConfig {
+  config: Record<string, any>;
+  raw: string;
+}

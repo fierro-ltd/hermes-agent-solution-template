@@ -17,6 +17,7 @@ dependencies = [
     "Pillow>=10.0",
     "PyJWT>=2.8.0",
     "cryptography>=42.0",
+    "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]
