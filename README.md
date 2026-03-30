@@ -25,7 +25,10 @@ graph TB
             Hermes["hermes-gateway<br/>AI Agent Gateway<br/>:8642"]
             Postgres["postgres<br/>PostgreSQL 15<br/>:5432"]
             MongoDB["mongodb<br/>MongoDB 8.0<br/>:27017"]
+            MC["mission-control<br/>Agent Dashboard<br/>:3001"]
         end
+
+        HermesVol[("Shared Volume<br/>(Hermes logs)")]
     end
 
     Browser -->|"HTTP :8000<br/>API + SPA + Auth"| API
@@ -49,9 +52,12 @@ graph TB
     LC -->|"MongoDB :27017<br/>Conversations"| MongoDB
 
     Hermes -->|"HTTPS<br/>LLM API"| LLM["External LLM Provider<br/>(OpenCode Go, OpenRouter)"]
+
+    Hermes -->|"Write logs"| HermesVol
+    MC -->|"Read logs"| HermesVol
 ```
 
-The template provides **nine Docker containers** orchestrated via Docker Compose. This is the core infrastructure you get out of the box -- swap the demo-specific pieces for your own domain logic:
+The template provides **ten Docker containers** orchestrated via Docker Compose. This is the core infrastructure you get out of the box -- swap the demo-specific pieces for your own domain logic:
 
 | Container | Role | Port |
 |-----------|------|------|
@@ -64,6 +70,7 @@ The template provides **nine Docker containers** orchestrated via Docker Compose
 | **worker** | Temporal worker — executes workflow activities | — |
 | **mongodb** | MongoDB 8.0 — LibreChat conversation storage | 27017 |
 | **librechat** | LibreChat v0.8.4 — direct chat UI for Hermes Agent | 3080 (via Caddy on 8080) |
+| **mission-control** | Mission Control — agent observability dashboard | 3001 |
 
 ## Use Cases
 
@@ -148,6 +155,7 @@ docker compose -f infra/shared/docker-compose.yml \
 #    Web UI:       http://localhost:8000
 #    LibreChat:    http://localhost:8080
 #    Temporal UI:  http://localhost:8233
+#    Mission Control: http://localhost:3001
 #    Auth (proxied): http://localhost:8000/api/auth
 ```
 
@@ -202,6 +210,9 @@ All configuration is managed through environment variables. Copy `infra/local/.e
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth app client secret | optional |
 | `TASK_QUEUE` | Temporal task queue name | `grading-queue` |
 | `GRADING_TIMEOUT_DAYS` | Days before unreviewed submissions expire | `7` |
+| `MC_AUTH_USER` | Mission Control dashboard username | required |
+| `MC_AUTH_PASS` | Mission Control dashboard password | required |
+| `MC_API_KEY` | Mission Control API key for agent reporting | required |
 
 ## Documentation
 
@@ -227,7 +238,7 @@ hermes-agent-solution-template/
 │   ├── api/                   # FastAPI application
 │   ├── auth/                  # better-auth service (Hono + Node.js)
 │   ├── workers/               # Temporal worker processes
-│   └── hermes/                # Hermes agent config + Dockerfile
+│   └── hermes/                # Hermes agent config, hooks, + Dockerfile
 ├── infra/
 │   ├── shared/                # Base Docker Compose + SQL init
 │   ├── local/                 # Local dev overrides

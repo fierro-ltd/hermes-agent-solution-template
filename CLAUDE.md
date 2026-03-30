@@ -16,7 +16,8 @@ Current version: **v0.15.0**
 - **AI Agent:** Hermes Agent Gateway (OpenAI-compatible API on port 8642; /v1/chat/completions and /v1/responses endpoints)
 - **Chat UI:** LibreChat v0.8.4 (served via Caddy on port 8080, connects to Hermes)
 - **Chat Storage:** MongoDB 8.0 (LibreChat conversation history)
-- **Containers:** Docker + Docker Compose (9 containers total)
+- **Observability:** Mission Control (agent dashboard on port 3001, shared Hermes volume)
+- **Containers:** Docker + Docker Compose (10 containers total)
 - **Package Manager:** pnpm (frontend)
 
 ## Key Patterns
@@ -27,6 +28,7 @@ Current version: **v0.15.0**
 - **SSE streaming.** `GET /api/submissions/{id}/stream` proxies Hermes SSE to the browser. The frontend streaming panel renders markdown in real time via react-markdown.
 - **Agent trace visibility.** `evaluate_submission` activity captures the full agent execution trace (steps, tool calls, token usage, timing). Stored in `reviews.agent_trace` JSONB column. Frontend shows collapsible accordion with reasoning steps, tool calls, and token usage.
 - **LibreChat integration.** LibreChat v0.8.4 provides a full chat UI for direct Hermes Agent interaction. Served via Caddy on port 8080, stores conversations in MongoDB.
+- **Mission Control observability.** Agent dashboard on port 3001 reads Hermes logs via shared volume. Requires `MC_AUTH_USER`, `MC_AUTH_PASS`, and `MC_API_KEY` env vars. Hermes hooks in `services/hermes/hooks/` report token usage to Mission Control.
 - **Environment variable management:** `infra/shared/.env` is the canonical env file. Copy from `infra/local/.env.example`.
 - **Docker Compose override:** Local dev mounts source directories for hot reload.
 - **better-auth authentication.** All `/api` routes require a valid session (cookie or Bearer token). `/health` is exempt. Auth requests (`/api/auth/*`) are proxied through the FastAPI server to the internal auth service (port 3100 is not publicly exposed). Supports email+password, Google OAuth, and GitHub OAuth.
@@ -66,7 +68,7 @@ PYTHONPATH=.:src pytest tests/ -v
 - `src/hermes_agent_solution_template/` -- Shared Python package (config, models, DB helpers)
 - `services/api/` -- FastAPI backend (serves frontend static files in production)
 - `services/workers/` -- Temporal workers + grading activities (demo workflow)
-- `services/hermes/` -- Hermes agent Dockerfile, SOUL.md, config.yaml
+- `services/hermes/` -- Hermes agent Dockerfile, SOUL.md, config.yaml, hooks/
 - `frontend/` -- Vite + React SPA
 - `infra/shared/` -- Base Docker Compose, SQL init, Temporal dynamic config
 - `infra/local/` -- Local dev overrides + .env.example

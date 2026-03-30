@@ -27,7 +27,7 @@ export const Route = createFileRoute("/")({
 // ---------------------------------------------------------------------------
 
 const STATS = [
-  { value: "9", label: "Containers", icon: Box },
+  { value: "10", label: "Containers", icon: Box },
   { value: "30+", label: "Hermes Tools", icon: Wrench },
   { value: "3", label: "AI Tool Types", icon: Brain },
   { value: "100%", label: "Durable Execution", icon: CheckCircle2 },
@@ -119,7 +119,7 @@ const ARCHITECTURE_CHART = `graph TB
     subgraph Client["Client"]
         Browser["Browser\n(React SPA)"]
     end
-    subgraph Docker["Docker Compose (9 containers)"]
+    subgraph Docker["Docker Compose (10 containers)"]
         subgraph App["Application"]
             API["FastAPI\n:8000"]
             Auth["better-auth\n:3100"]
@@ -131,6 +131,7 @@ const ARCHITECTURE_CHART = `graph TB
             Postgres["PostgreSQL"]
             Mongo["MongoDB"]
             LibreChat["LibreChat\n:3000"]
+            MC["Mission\nControl"]
         end
     end
     Browser -->|REST| API
@@ -142,8 +143,10 @@ const ARCHITECTURE_CHART = `graph TB
     Auth --> Postgres
     Worker --> Temporal
     Worker -->|v1/responses| Hermes
+    Worker -->|tokens| MC
     Worker --> Postgres
     Hermes -->|agent_trace| Postgres
+    MC -.->|shared vol| Hermes
     LibreChat --> Hermes
     LibreChat --> Mongo
     Hermes --> LLM["LLM Provider\n(web / file / vision)"]`;
@@ -159,6 +162,7 @@ const TECH_STACK = [
   { name: "Tavily", role: "Web Search" },
   { name: "better-auth", role: "Authentication" },
   { name: "Docker Compose", role: "Infrastructure" },
+  { name: "Mission Control", role: "Agent Observability" },
   { name: "Caddy", role: "Reverse Proxy" },
 ];
 

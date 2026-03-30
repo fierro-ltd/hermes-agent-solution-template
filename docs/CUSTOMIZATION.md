@@ -413,7 +413,7 @@ endpoints:
 
 ### Disabling LibreChat
 
-If you don't need the chat UI, remove the `librechat` and `mongodb` services from `docker-compose.yml` and remove the related environment variables from `.env`. This reduces the container count from 9 to 7 and eliminates the MongoDB dependency.
+If you don't need the chat UI, remove the `librechat` and `mongodb` services from `docker-compose.yml` and remove the related environment variables from `.env`. This reduces the container count from 10 to 8 and eliminates the MongoDB dependency.
 
 ---
 
