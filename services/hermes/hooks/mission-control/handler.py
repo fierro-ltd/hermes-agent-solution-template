@@ -2,24 +2,23 @@
 
 Sends agent registration, status updates, and session events to
 Mission Control's REST API. Fails silently if MC is unreachable.
+
+Compatible with Hermes v0.5+ hook system (handle function) and
+falls back to __main__ for older versions.
 """
 
 import os
-import sys
-import json
 
 
-def main():
+def handle(event: str, data: dict | None = None):
+    """Called by Hermes hook system on registered events."""
     mc_url = os.environ.get("MC_URL", "")
     mc_api_key = os.environ.get("MC_API_KEY", "")
 
     if not mc_url or not mc_api_key:
         return
 
-    event = sys.argv[1] if len(sys.argv) > 1 else ""
-    try:
-        data = json.load(sys.stdin) if not sys.stdin.isatty() else {}
-    except (json.JSONDecodeError, EOFError):
+    if data is None:
         data = {}
 
     try:
@@ -78,5 +77,14 @@ def main():
         pass
 
 
+# Fallback for older Hermes versions that call handler.py as a script
 if __name__ == "__main__":
-    main()
+    import sys
+    import json
+
+    event = sys.argv[1] if len(sys.argv) > 1 else ""
+    try:
+        payload = json.load(sys.stdin) if not sys.stdin.isatty() else {}
+    except (json.JSONDecodeError, EOFError):
+        payload = {}
+    handle(event, payload)
